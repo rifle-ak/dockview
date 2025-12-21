@@ -327,6 +327,68 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--accent-primary);
         }
+
+        /* Widget Cards */
+        .widget-card {
+            background: linear-gradient(135deg, var(--bg-card) 0%, #1d2342 100%);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .widget-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 30px rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .widget-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .widget-header i {
+            font-size: 1.5rem;
+        }
+
+        .widget-header h3 {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: var(--text-primary);
+        }
+
+        .widget-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .widget-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .widget-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .widget-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
 </head>
 <body>
@@ -361,6 +423,159 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-6 py-8">
+        <!-- Widgets Section -->
+        <div id="widgets-section" class="mb-12" style="display: none;">
+            <h2 class="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                <i class="fas fa-chart-line"></i> Service Dashboard
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Tautulli / Plex Widget -->
+                <div id="widget-tautulli" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fab fa-plex" style="color: #e5a00d;"></i>
+                        <h3>Plex Activity</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tautulli-streams">0</span>
+                            <span class="widget-label">Active Streams</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tautulli-bandwidth">0 Mbps</span>
+                            <span class="widget-label">Bandwidth</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pi-hole Widget -->
+                <div id="widget-pihole" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-shield-alt" style="color: #96060c;"></i>
+                        <h3>Pi-hole</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="pihole-blocked">0</span>
+                            <span class="widget-label">Blocked Today</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="pihole-percent">0%</span>
+                            <span class="widget-label">Block Rate</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overseerr Widget -->
+                <div id="widget-overseerr" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-ticket-alt" style="color: #a55eea;"></i>
+                        <h3>Requests</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="overseerr-pending">0</span>
+                            <span class="widget-label">Pending</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="overseerr-total">0</span>
+                            <span class="widget-label">Total Requests</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sonarr Widget -->
+                <div id="widget-sonarr" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-tv" style="color: #4ECDC4;"></i>
+                        <h3>Sonarr</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="sonarr-queue">0</span>
+                            <span class="widget-label">In Queue</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="sonarr-upcoming">0</span>
+                            <span class="widget-label">Airing Today</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Radarr Widget -->
+                <div id="widget-radarr" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-film" style="color: #ffc230;"></i>
+                        <h3>Radarr</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="radarr-queue">0</span>
+                            <span class="widget-label">In Queue</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="radarr-upcoming">0</span>
+                            <span class="widget-label">Releasing Today</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tdarr Widget -->
+                <div id="widget-tdarr" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-compact-disc" style="color: #f97316;"></i>
+                        <h3>Tdarr</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tdarr-queue">0</span>
+                            <span class="widget-label">In Queue</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tdarr-processing">0</span>
+                            <span class="widget-label">Processing</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prowlarr Widget -->
+                <div id="widget-prowlarr" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-search" style="color: #f59e0b;"></i>
+                        <h3>Prowlarr</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="prowlarr-enabled">0</span>
+                            <span class="widget-label">Enabled</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="prowlarr-total">0</span>
+                            <span class="widget-label">Total Indexers</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrutiny Widget -->
+                <div id="widget-scrutiny" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-hdd" style="color: #10b981;"></i>
+                        <h3>Disk Health</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="scrutiny-devices">0</span>
+                            <span class="widget-label">Total Devices</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="scrutiny-critical">0</span>
+                            <span class="widget-label">Critical</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Search and Filters -->
         <div class="mb-8">
             <div class="search-container mx-auto mb-6">
@@ -684,11 +899,98 @@
             }, 3000);
         }
 
+        // Widget functions
+        async function fetchWidgets() {
+            try {
+                const response = await fetch('/widgets/all');
+                const data = await response.json();
+
+                if (!data.enabled) {
+                    return;
+                }
+
+                const widgetsSection = document.getElementById('widgets-section');
+                widgetsSection.style.display = 'block';
+
+                const widgets = data.widgets;
+
+                // Update Tautulli widget
+                if (widgets.tautulli && widgets.tautulli.available) {
+                    document.getElementById('widget-tautulli').style.display = 'block';
+                    document.getElementById('tautulli-streams').textContent = widgets.tautulli.stream_count;
+                    const bandwidth = widgets.tautulli.total_bandwidth ?
+                        (widgets.tautulli.total_bandwidth / 1000).toFixed(1) + ' Mbps' : '0 Mbps';
+                    document.getElementById('tautulli-bandwidth').textContent = bandwidth;
+                }
+
+                // Update Pi-hole widget
+                if (widgets.pihole && widgets.pihole.available) {
+                    document.getElementById('widget-pihole').style.display = 'block';
+                    document.getElementById('pihole-blocked').textContent = widgets.pihole.blocked_today.toLocaleString();
+                    document.getElementById('pihole-percent').textContent = widgets.pihole.percent_blocked + '%';
+                }
+
+                // Update Overseerr widget
+                if (widgets.overseerr && widgets.overseerr.available) {
+                    document.getElementById('widget-overseerr').style.display = 'block';
+                    document.getElementById('overseerr-pending').textContent = widgets.overseerr.pending_requests;
+                    document.getElementById('overseerr-total').textContent = widgets.overseerr.total_requests;
+                }
+
+                // Update Sonarr widget
+                if (widgets.sonarr && widgets.sonarr.available) {
+                    document.getElementById('widget-sonarr').style.display = 'block';
+                    document.getElementById('sonarr-queue').textContent = widgets.sonarr.queue_count;
+                    document.getElementById('sonarr-upcoming').textContent = widgets.sonarr.upcoming_today;
+                }
+
+                // Update Radarr widget
+                if (widgets.radarr && widgets.radarr.available) {
+                    document.getElementById('widget-radarr').style.display = 'block';
+                    document.getElementById('radarr-queue').textContent = widgets.radarr.queue_count;
+                    document.getElementById('radarr-upcoming').textContent = widgets.radarr.upcoming_today;
+                }
+
+                // Update Tdarr widget
+                if (widgets.tdarr && widgets.tdarr.available) {
+                    document.getElementById('widget-tdarr').style.display = 'block';
+                    document.getElementById('tdarr-queue').textContent = widgets.tdarr.queue_count;
+                    document.getElementById('tdarr-processing').textContent = widgets.tdarr.processing;
+                }
+
+                // Update Prowlarr widget
+                if (widgets.prowlarr && widgets.prowlarr.available) {
+                    document.getElementById('widget-prowlarr').style.display = 'block';
+                    document.getElementById('prowlarr-enabled').textContent = widgets.prowlarr.enabled_indexers;
+                    document.getElementById('prowlarr-total').textContent = widgets.prowlarr.total_indexers;
+                }
+
+                // Update Scrutiny widget
+                if (widgets.scrutiny && widgets.scrutiny.available) {
+                    document.getElementById('widget-scrutiny').style.display = 'block';
+                    document.getElementById('scrutiny-devices').textContent = widgets.scrutiny.total_devices;
+                    const critical = widgets.scrutiny.critical;
+                    const criticalElement = document.getElementById('scrutiny-critical');
+                    criticalElement.textContent = critical;
+                    // Change color if critical
+                    if (critical > 0) {
+                        criticalElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                        criticalElement.style.webkitBackgroundClip = 'text';
+                        criticalElement.style.webkitTextFillColor = 'transparent';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching widgets:', error);
+            }
+        }
+
         // Auto-refresh
         setInterval(fetchContainers, 10000);
+        setInterval(fetchWidgets, 30000); // Refresh widgets every 30 seconds
 
         // Initial fetch
         fetchContainers();
+        fetchWidgets();
     </script>
 </body>
 </html>

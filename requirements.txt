@@ -3,3 +3,6 @@ uvicorn[standard]
 docker
 python-multipart
 jinja2
+pyyaml
+aiohttp
+httpx

@@ -1,0 +1,87 @@
+# DockView Service Integration Configuration
+#
+# Instructions:
+# 1. Enable services you want to integrate (enabled: true)
+# 2. Set the internal Docker network URL (usually http://container-name:port)
+# 3. Add API keys where required
+# 4. Services will auto-detect if containers are running
+
+services:
+  # Plex Statistics (via Tautulli)
+  tautulli:
+    enabled: true
+    url: "http://tautulli:8181"
+    api_key: "YOUR_TAUTULLI_API_KEY"  # Get from Tautulli Settings > Web Interface > API Key
+
+  # DNS Statistics
+  pihole:
+    enabled: true
+    url: "http://pihole:80"
+    api_key: ""  # Optional - leave empty if no password set
+
+  # Media Requests
+  overseerr:
+    enabled: true
+    url: "http://overseerr:5055"
+    api_key: "YOUR_OVERSEERR_API_KEY"  # Get from Overseerr Settings > General
+
+  # TV Show Management
+  sonarr:
+    enabled: true
+    url: "http://sonarr:8989"
+    api_key: "YOUR_SONARR_API_KEY"  # Get from Sonarr Settings > General > Security
+
+  # Movie Management
+  radarr:
+    enabled: true
+    url: "http://radarr:7878"
+    api_key: "YOUR_RADARR_API_KEY"  # Get from Radarr Settings > General > Security
+
+  # Indexer Management
+  prowlarr:
+    enabled: true
+    url: "http://prowlarr:9696"
+    api_key: "YOUR_PROWLARR_API_KEY"  # Get from Prowlarr Settings > General > Security
+
+  # Transcoding
+  tdarr:
+    enabled: true
+    url: "http://tdarr:8265"
+    # Tdarr doesn't require API key for stats endpoint
+
+  # Notifications
+  gotify:
+    enabled: true
+    url: "http://gotify:80"
+    api_key: "YOUR_GOTIFY_API_KEY"  # Get from Gotify > Apps > Create Application
+
+  # System Metrics
+  grafana:
+    enabled: false  # Set to true if you want embedded charts
+    url: "http://grafana:3000"
+    # For embedded dashboards, you may need to configure anonymous access
+
+  prometheus:
+    enabled: false  # Advanced users only
+    url: "http://prometheus:9090"
+
+  # Disk Health
+  scrutiny:
+    enabled: true
+    url: "http://scrutiny:8080"
+
+  # Real-Debrid Client
+  rdtclient:
+    enabled: true
+    url: "http://rdtclient:6500"
+
+# Widget Display Settings
+widgets:
+  # Show widgets at the top of the dashboard
+  show_widgets: true
+
+  # Refresh interval for widgets (seconds)
+  refresh_interval: 30
+
+  # Maximum number of items to show in list widgets
+  max_items: 5

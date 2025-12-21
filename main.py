@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
@@ -6,6 +6,10 @@ import docker
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import yaml
+import aiohttp
+import asyncio
+from typing import Optional, Dict, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -13,6 +17,21 @@ logger = logging.getLogger(__name__)
 
 # Initialize Docker client
 client = docker.from_env()
+
+# Load configuration
+def load_config():
+    """Load configuration from config.yaml"""
+    try:
+        with open('config.yaml', 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        logger.warning("config.yaml not found, using default configuration")
+        return {'services': {}, 'widgets': {'show_widgets': False}}
+    except Exception as e:
+        logger.error(f"Error loading config.yaml: {e}")
+        return {'services': {}, 'widgets': {'show_widgets': False}}
+
+config = load_config()
 
 # Initialize FastAPI
 app = FastAPI(title="DockView API")
@@ -132,6 +151,52 @@ def format_bytes(bytes_value):
             return f"{bytes_value:.1f} {unit}"
         bytes_value /= 1024.0
     return f"{bytes_value:.1f} PB"
+
+# ===== SERVICE INTEGRATION HELPERS =====
+
+async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str, Any] = None) -> Optional[Dict]:
+    """Fetch data from an external service"""
+    service_config = config.get('services', {}).get(service_name, {})
+
+    if not service_config.get('enabled', False):
+        return None
+
+    url = service_config.get('url')
+    api_key = service_config.get('api_key', '')
+
+    if not url:
+        return None
+
+    full_url = f"{url}{endpoint}"
+    headers = {}
+
+    # Add API key based on service type
+    if api_key:
+        if service_name in ['tautulli']:
+            params = params or {}
+            params['apikey'] = api_key
+        elif service_name in ['sonarr', 'radarr', 'prowlarr', 'lidarr']:
+            headers['X-Api-Key'] = api_key
+        elif service_name in ['overseerr']:
+            headers['X-Api-Key'] = api_key
+        elif service_name in ['gotify']:
+            headers['X-Gotify-Key'] = api_key
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(full_url, headers=headers, params=params) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    logger.warning(f"Service {service_name} returned status {response.status}")
+                    return None
+    except asyncio.TimeoutError:
+        logger.warning(f"Timeout fetching data from {service_name}")
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching from {service_name}: {e}")
+        return None
 
 def process_container(c):
     """Process a single container and return its info"""
@@ -259,6 +324,186 @@ async def start_container(container_id: str):
         return {"status": "success", "message": f"Container {container_id} started"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+# ===== WIDGET ENDPOINTS =====
+
+@app.get("/widgets/all")
+async def get_all_widgets():
+    """Get all widget data in a single request"""
+    widgets_config = config.get('widgets', {})
+
+    if not widgets_config.get('show_widgets', False):
+        return {"enabled": False, "widgets": {}}
+
+    # Fetch all widgets concurrently
+    tasks = {
+        'tautulli': get_tautulli_stats(),
+        'pihole': get_pihole_stats(),
+        'overseerr': get_overseerr_stats(),
+        'sonarr': get_sonarr_stats(),
+        'radarr': get_radarr_stats(),
+        'tdarr': get_tdarr_stats(),
+        'prowlarr': get_prowlarr_stats(),
+        'scrutiny': get_scrutiny_stats(),
+    }
+
+    results = {}
+    for name, task in tasks.items():
+        try:
+            results[name] = await task
+        except Exception as e:
+            logger.error(f"Error fetching {name} widget: {e}")
+            results[name] = None
+
+    return {
+        "enabled": True,
+        "widgets": results
+    }
+
+@app.get("/widgets/tautulli")
+async def get_tautulli_stats():
+    """Get Plex stats from Tautulli"""
+    # Get current activity
+    activity = await fetch_service_data('tautulli', '/api/v2', {'cmd': 'get_activity'})
+    # Get library stats
+    libraries = await fetch_service_data('tautulli', '/api/v2', {'cmd': 'get_libraries'})
+
+    if not activity:
+        return None
+
+    data = activity.get('response', {}).get('data', {})
+
+    return {
+        "stream_count": data.get('stream_count', 0),
+        "total_bandwidth": data.get('total_bandwidth', 0),
+        "streams": data.get('sessions', [])[:3],  # Top 3 streams
+        "available": True
+    }
+
+@app.get("/widgets/pihole")
+async def get_pihole_stats():
+    """Get Pi-hole DNS blocking stats"""
+    data = await fetch_service_data('pihole', '/admin/api.php', {'summary': ''})
+
+    if not data:
+        return None
+
+    return {
+        "queries_today": data.get('dns_queries_today', 0),
+        "blocked_today": data.get('ads_blocked_today', 0),
+        "percent_blocked": round(data.get('ads_percentage_today', 0), 1),
+        "domains_blocked": data.get('domains_being_blocked', 0),
+        "available": True
+    }
+
+@app.get("/widgets/overseerr")
+async def get_overseerr_stats():
+    """Get Overseerr request stats"""
+    # Get request count
+    requests_data = await fetch_service_data('overseerr', '/api/v1/request', {'take': 10, 'skip': 0})
+
+    if not requests_data:
+        return None
+
+    results = requests_data.get('results', [])
+    pending = [r for r in results if r.get('status') == 1]  # Status 1 = pending
+
+    return {
+        "pending_requests": len(pending),
+        "total_requests": requests_data.get('pageInfo', {}).get('results', 0),
+        "recent_requests": results[:5],
+        "available": True
+    }
+
+@app.get("/widgets/sonarr")
+async def get_sonarr_stats():
+    """Get Sonarr queue and calendar"""
+    queue = await fetch_service_data('sonarr', '/api/v3/queue')
+    calendar = await fetch_service_data('sonarr', '/api/v3/calendar', {
+        'start': datetime.now(timezone.utc).isoformat(),
+        'end': (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
+    })
+
+    if queue is None:
+        return None
+
+    return {
+        "queue_count": len(queue.get('records', [])) if queue else 0,
+        "upcoming_today": len(calendar) if calendar else 0,
+        "queue_items": queue.get('records', [])[:5] if queue else [],
+        "available": True
+    }
+
+@app.get("/widgets/radarr")
+async def get_radarr_stats():
+    """Get Radarr queue and calendar"""
+    queue = await fetch_service_data('radarr', '/api/v3/queue')
+    calendar = await fetch_service_data('radarr', '/api/v3/calendar', {
+        'start': datetime.now(timezone.utc).isoformat(),
+        'end': (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
+    })
+
+    if queue is None:
+        return None
+
+    return {
+        "queue_count": len(queue.get('records', [])) if queue else 0,
+        "upcoming_today": len(calendar) if calendar else 0,
+        "queue_items": queue.get('records', [])[:5] if queue else [],
+        "available": True
+    }
+
+@app.get("/widgets/tdarr")
+async def get_tdarr_stats():
+    """Get Tdarr transcoding stats"""
+    data = await fetch_service_data('tdarr', '/api/v2/status')
+
+    if not data:
+        # Try alternative endpoint
+        data = await fetch_service_data('tdarr', '/api/v2/get-stats')
+
+    if not data:
+        return None
+
+    # Tdarr API structure varies, adapt as needed
+    return {
+        "queue_count": data.get('table1Count', 0),
+        "processing": data.get('processing', 0),
+        "workers": data.get('workers', []),
+        "available": True
+    }
+
+@app.get("/widgets/prowlarr")
+async def get_prowlarr_stats():
+    """Get Prowlarr indexer health"""
+    indexers = await fetch_service_data('prowlarr', '/api/v1/indexer')
+
+    if not indexers:
+        return None
+
+    enabled = [i for i in indexers if i.get('enable', False)]
+    healthy = [i for i in enabled if not i.get('tags', [])]
+
+    return {
+        "total_indexers": len(indexers),
+        "enabled_indexers": len(enabled),
+        "healthy_indexers": len(healthy),
+        "available": True
+    }
+
+@app.get("/widgets/scrutiny")
+async def get_scrutiny_stats():
+    """Get disk health from Scrutiny"""
+    data = await fetch_service_data('scrutiny', '/api/summary')
+
+    if not data:
+        return None
+
+    return {
+        "total_devices": data.get('data', {}).get('summary', {}).get('total_device_count', 0),
+        "critical": data.get('data', {}).get('summary', {}).get('critical_device_count', 0),
+        "available": True
+    }
 
 if __name__ == "__main__":
     import uvicorn
