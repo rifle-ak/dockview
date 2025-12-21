@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DockView Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { background-color: #1a1a1a; color: #e0e0e0; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background-color: #555; border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-track { background-color: #2a2a2a; }
+
+.badge-running { background-color: #16a34a; color: white; }
+.badge-stopped { background-color: #dc2626; color: white; }
+
+.progress-bar { height: 8px; border-radius: 4px; background-color: #555; overflow: hidden; }
+.progress-fill { height: 100%; transition: width 0.3s; }
+
+.icon { width: 24px; height: 24px; margin-right: 8px; }
+.card { transition: transform 0.2s, box-shadow 0.2s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 0 12px #000; }
+</style>
+</head>
+<body class="font-sans">
+
+<header class="bg-gray-900 p-4 shadow flex items-center justify-between">
+<h1 class="text-2xl font-bold text-white">DockView Dashboard</h1>
+<span class="text-gray-400 text-sm">Auto-refresh: 10s</span>
+</header>
+
+<main class="p-6">
+<div class="mb-4 border-b border-gray-700">
+<nav class="flex space-x-4" id="tabs">
+<button class="tab-button py-2 px-4 border-b-2 border-blue-500 font-semibold text-white" data-tab="all">All</button>
+<button class="tab-button py-2 px-4 border-b-2 border-transparent hover:border-blue-500 font-semibold text-gray-300" data-tab="running">Running</button>
+<button class="tab-button py-2 px-4 border-b-2 border-transparent hover:border-blue-500 font-semibold text-gray-300" data-tab="stopped">Stopped</button>
+</nav>
+</div>
+
+<div id="container-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 scrollbar-thin overflow-y-auto max-h-[75vh]">
+<!-- Container cards injected here -->
+</div>
+</main>
+
+<script>
+const tabs = document.querySelectorAll('.tab-button');
+const containerList = document.getElementById('container-list');
+
+const ICONS = {
+plex: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/plex.svg',
+tdarr: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/tdarr.svg',
+traefik: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/traefik.svg',
+default: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/docker.svg'
+};
+
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        tabs.forEach(t => {
+            t.classList.replace('border-blue-500', 'border-transparent');
+            t.classList.replace('text-white', 'text-gray-300');
+        });
+        tab.classList.replace('border-transparent', 'border-blue-500');
+        tab.classList.replace('text-gray-300', 'text-white');
+        // Filter containers by tab.dataset.tab
+        filterContainers(tab.dataset.tab);
+    });
+});
+
+let allContainers = [];
+
+async function refreshContainers() {
+    try {
+        const res = await fetch('/containers'); // Backend endpoint
+        const data = await res.json();
+        allContainers = data;
+        renderContainers(allContainers);
+    } catch (err) {
+        console.error('Error fetching containers:', err);
+    }
+}
+
+function renderContainers(containers) {
+    containerList.innerHTML = '';
+    containers.forEach(container => {
+        const card = document.createElement('div');
+        card.className = 'card bg-gray-800 rounded-lg shadow p-4 flex flex-col justify-between';
+        const iconUrl = ICONS[container.appType] || ICONS.default;
+
+        // Determine progress bar colors
+        const cpuColor = container.cpu > 75 ? '#dc2626' : container.cpu > 50 ? '#facc15' : '#16a34a';
+        const memColor = container.memory > 75 ? '#dc2626' : container.memory > 50 ? '#facc15' : '#16a34a';
+
+        card.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                    <img src="${iconUrl}" class="icon" alt="${container.appType}">
+                    <h2 class="text-lg font-bold">${container.name}</h2>
+                </div>
+                <span class="px-2 py-1 text-sm rounded ${container.status === 'running' ? 'badge-running' : 'badge-stopped'}">${container.status}</span>
+            </div>
+            <p>Uptime: ${container.uptime}</p>
+            <div class="mt-2">
+                <p class="text-xs text-gray-400">CPU: ${container.cpu}%</p>
+                <div class="progress-bar"><div class="progress-fill" style="width:${container.cpu}%;background-color:${cpuColor}"></div></div>
+            </div>
+            <div class="mt-2">
+                <p class="text-xs text-gray-400">Memory: ${container.memory}%</p>
+                <div class="progress-bar"><div class="progress-fill" style="width:${container.memory}%;background-color:${memColor}"></div></div>
+            </div>
+            <div class="mt-4 flex gap-2">
+                <button class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700" onclick="restart('${container.id}')">Restart</button>
+                <button class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700" onclick="stop('${container.id}')">Stop</button>
+            </div>
+        `;
+        containerList.appendChild(card);
+    });
+}
+
+function filterContainers(status) {
+    if(status === 'all') renderContainers(allContainers);
+    else renderContainers(allContainers.filter(c => c.status === status));
+}
+
+setInterval(refreshContainers, 10000);
+refreshContainers();
+
+function restart(id){ fetch(`/restart/${id}`,{method:'POST'}).then(refreshContainers); }
+function stop(id){ fetch(`/stop/${id}`,{method:'POST'}).then(refreshContainers); }
+</script>
+
+</body>
+</html>

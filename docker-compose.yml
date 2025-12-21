@@ -1,0 +1,22 @@
+services:
+  dockview:
+    build: .
+    container_name: dockview
+    restart: unless-stopped
+    networks:
+      - saltbox
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./templates:/app/templates   # mount templates folder
+    environment:
+      - TZ=America/New_York
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockview.rule=Host(`dockview.plexluthor.online`)"
+      - "traefik.http.routers.dockview.entrypoints=websecure"
+      - "traefik.http.routers.dockview.tls=true"
+      - "traefik.http.services.dockview.loadbalancer.server.port=5080"
+
+networks:
+  saltbox:
+    external: true
