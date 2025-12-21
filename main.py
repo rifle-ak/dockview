@@ -183,19 +183,24 @@ async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str,
             headers['X-Gotify-Key'] = api_key
 
     try:
-        timeout = aiohttp.ClientTimeout(total=5)
+        timeout = aiohttp.ClientTimeout(total=15)  # Increased from 5 to 15 seconds
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(full_url, headers=headers, params=params) as response:
                 if response.status == 200:
-                    return await response.json()
+                    data = await response.json()
+                    logger.info(f"Successfully fetched data from {service_name}")
+                    return data
                 else:
-                    logger.warning(f"Service {service_name} returned status {response.status}")
+                    logger.warning(f"Service {service_name} returned status {response.status} from {full_url}")
                     return None
     except asyncio.TimeoutError:
-        logger.warning(f"Timeout fetching data from {service_name}")
+        logger.warning(f"Timeout (15s) fetching data from {service_name} at {full_url}")
+        return None
+    except aiohttp.ClientError as e:
+        logger.error(f"Network error fetching from {service_name}: {e}")
         return None
     except Exception as e:
-        logger.error(f"Error fetching from {service_name}: {e}")
+        logger.error(f"Unexpected error fetching from {service_name}: {e}")
         return None
 
 def process_container(c):
