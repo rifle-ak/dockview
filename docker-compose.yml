@@ -7,7 +7,6 @@ services:
       - saltbox
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./templates:/app/templates   # mount templates folder
     environment:
       - TZ=America/New_York
     labels:
