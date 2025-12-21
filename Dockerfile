@@ -2,11 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy main.py into the container
+# Copy application files
 COPY main.py .
+COPY index.html .
+COPY requirements.txt .
 
-# Install FastAPI + Uvicorn
-RUN pip install --no-cache-dir fastapi uvicorn jinja2 docker
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the port for Traefik / direct access
 EXPOSE 5080
