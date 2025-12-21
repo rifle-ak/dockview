@@ -4,6 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import docker
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize Docker client
 client = docker.from_env()
@@ -127,84 +133,101 @@ def format_bytes(bytes_value):
         bytes_value /= 1024.0
     return f"{bytes_value:.1f} PB"
 
+def process_container(c):
+    """Process a single container and return its info"""
+    try:
+        # Get container stats if running
+        stats = c.stats(stream=False) if c.status == "running" else None
+
+        # Calculate uptime
+        if c.status == "running" and 'StartedAt' in c.attrs['State']:
+            started_at = c.attrs['State']['StartedAt']
+            # Parse the timestamp
+            if started_at.endswith('Z'):
+                started_time = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+            else:
+                started_time = datetime.fromisoformat(started_at[:26] + '+00:00')
+            uptime_seconds = int((datetime.now(timezone.utc) - started_time).total_seconds())
+            uptime = format_uptime(uptime_seconds)
+        else:
+            uptime_seconds = 0
+            uptime = "Stopped"
+
+        # Calculate CPU and memory
+        if stats:
+            cpu = calculate_cpu_percent(stats)
+            memory = calculate_memory_percent(stats)
+            memory_usage = stats['memory_stats'].get('usage', 0)
+            memory_limit = stats['memory_stats'].get('limit', 0)
+            memory_text = f"{format_bytes(memory_usage)} / {format_bytes(memory_limit)}"
+        else:
+            cpu = 0.0
+            memory = 0.0
+            memory_text = "N/A"
+
+        # Get image name
+        image = c.image.tags[0] if c.image.tags else c.attrs['Config']['Image']
+
+        # Detect app type
+        app_type = detect_app_type(c.name, image)
+
+        # Get ports
+        ports = []
+        if c.attrs.get('NetworkSettings', {}).get('Ports'):
+            for port, bindings in c.attrs['NetworkSettings']['Ports'].items():
+                if bindings:
+                    for binding in bindings:
+                        ports.append(f"{binding['HostPort']}:{port}")
+
+        return {
+            "id": c.id[:12],
+            "name": c.name,
+            "status": c.status,
+            "uptime": uptime,
+            "uptime_seconds": uptime_seconds,
+            "cpu": cpu,
+            "memory": memory,
+            "memory_text": memory_text,
+            "appType": app_type,
+            "image": image,
+            "ports": ports
+        }
+    except Exception as e:
+        logger.error(f"Error processing container {c.name}: {e}")
+        return None
+
 def get_containers():
-    """Get all containers with their stats"""
+    """Get all containers with their stats (parallelized for speed)"""
     containers_list = []
+    all_containers = client.containers.list(all=True)
 
-    for c in client.containers.list(all=True):
-        try:
-            # Get container stats if running
-            stats = c.stats(stream=False) if c.status == "running" else None
+    logger.info(f"Fetching stats for {len(all_containers)} containers...")
 
-            # Calculate uptime
-            if c.status == "running" and 'StartedAt' in c.attrs['State']:
-                started_at = c.attrs['State']['StartedAt']
-                # Parse the timestamp
-                if started_at.endswith('Z'):
-                    started_time = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
-                else:
-                    started_time = datetime.fromisoformat(started_at[:26] + '+00:00')
-                uptime_seconds = int((datetime.now(timezone.utc) - started_time).total_seconds())
-                uptime = format_uptime(uptime_seconds)
-            else:
-                uptime_seconds = 0
-                uptime = "Stopped"
+    # Process containers in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_container = {executor.submit(process_container, c): c for c in all_containers}
 
-            # Calculate CPU and memory
-            if stats:
-                cpu = calculate_cpu_percent(stats)
-                memory = calculate_memory_percent(stats)
-                memory_usage = stats['memory_stats'].get('usage', 0)
-                memory_limit = stats['memory_stats'].get('limit', 0)
-                memory_text = f"{format_bytes(memory_usage)} / {format_bytes(memory_limit)}"
-            else:
-                cpu = 0.0
-                memory = 0.0
-                memory_text = "N/A"
-
-            # Get image name
-            image = c.image.tags[0] if c.image.tags else c.attrs['Config']['Image']
-
-            # Detect app type
-            app_type = detect_app_type(c.name, image)
-
-            # Get ports
-            ports = []
-            if c.attrs.get('NetworkSettings', {}).get('Ports'):
-                for port, bindings in c.attrs['NetworkSettings']['Ports'].items():
-                    if bindings:
-                        for binding in bindings:
-                            ports.append(f"{binding['HostPort']}:{port}")
-
-            containers_list.append({
-                "id": c.id[:12],
-                "name": c.name,
-                "status": c.status,
-                "uptime": uptime,
-                "uptime_seconds": uptime_seconds,
-                "cpu": cpu,
-                "memory": memory,
-                "memory_text": memory_text,
-                "appType": app_type,
-                "image": image,
-                "ports": ports
-            })
-        except Exception as e:
-            print(f"Error processing container {c.name}: {e}")
-            continue
+        for future in as_completed(future_to_container):
+            result = future.result()
+            if result:
+                containers_list.append(result)
 
     # Sort by status (running first) then by name
     containers_list.sort(key=lambda x: (x['status'] != 'running', x['name']))
+
+    logger.info(f"Successfully processed {len(containers_list)} containers")
     return containers_list
 
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
-    return FileResponse('index.html')
+    logger.info("Serving index.html from root endpoint")
+    return FileResponse('index.html', media_type='text/html')
 
 @app.get("/containers")
 async def containers():
     """Get all containers"""
+    logger.info("Fetching containers from /containers endpoint")
     return get_containers()
 
 @app.post("/restart/{container_id}")
