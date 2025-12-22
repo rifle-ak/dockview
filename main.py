@@ -388,7 +388,7 @@ async def get_tautulli_stats():
 @app.get("/widgets/pihole")
 async def get_pihole_stats():
     """Get Pi-hole DNS blocking stats"""
-    data = await fetch_service_data('pihole', '/admin/api.php', {'summary': ''})
+    data = await fetch_service_data('pihole', '/api/summary')
 
     if not data:
         return None
