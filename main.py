@@ -633,7 +633,10 @@ async def get_scrutiny_stats():
         return None
 
     # Log the actual structure for debugging
-    logger.info(f"🔍 Scrutiny API response structure: {json.dumps(data, indent=2)[:500]}")
+    logger.info(f"🔍 Scrutiny API response structure: {json.dumps(data, indent=2)[:2000]}")
+
+    # Also log what we're checking
+    logger.info(f"🔍 Scrutiny checks: has 'data': {'data' in data}, data type: {type(data.get('data'))}, has 'summary': {'summary' in data.get('data', {}) if isinstance(data.get('data'), dict) else False}")
 
     # Try multiple possible response structures
     total_devices = 0
