@@ -41,12 +41,58 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: linear-gradient(135deg, var(--bg-card) 0%, #1d2342 100%);
             border: 1px solid rgba(99, 102, 241, 0.1);
+            position: relative;
         }
 
         .container-card:hover {
             transform: translateY(-8px);
             box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2), 0 0 40px rgba(139, 92, 246, 0.1);
             border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .container-card.clickable {
+            cursor: pointer;
+        }
+
+        .container-card.clickable:hover::after {
+            content: '🔗 Click to open';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Uptime badge */
+        .uptime-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .uptime-online {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .uptime-offline {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
         }
 
         /* Status badges */
@@ -423,6 +469,61 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-6 py-8">
+        <!-- Hero Section - Speedtest Display -->
+        <div id="hero-speedtest" class="mb-12" style="display: none;">
+            <div class="relative overflow-hidden rounded-3xl p-8 glass border-2 border-indigo-500/30 shadow-2xl">
+                <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10"></div>
+                <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/20 to-cyan-500/20 rounded-full blur-3xl -z-10"></div>
+
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        <i class="fas fa-tachometer-alt"></i> Network Performance
+                    </h2>
+                    <p class="text-gray-400 text-sm">Real-time internet speed metrics</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- Download Speed -->
+                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
+                            <i class="fas fa-download"></i> Download
+                        </div>
+                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent" id="hero-download">
+                            --
+                        </div>
+                        <div class="text-xl text-gray-500">Mbps</div>
+                    </div>
+
+                    <!-- Upload Speed -->
+                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
+                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
+                            <i class="fas fa-upload"></i> Upload
+                        </div>
+                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="hero-upload">
+                            --
+                        </div>
+                        <div class="text-xl text-gray-500">Mbps</div>
+                    </div>
+
+                    <!-- Ping -->
+                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
+                            <i class="fas fa-signal"></i> Latency
+                        </div>
+                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent" id="hero-ping">
+                            --
+                        </div>
+                        <div class="text-xl text-gray-500">ms</div>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <div class="text-xs text-gray-500" id="hero-speedtest-server">Server: --</div>
+                    <div class="text-xs text-gray-600 mt-1" id="hero-speedtest-time">Last tested: --</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Widgets Section -->
         <div id="widgets-section" class="mb-12" style="display: none;">
             <h2 class="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
@@ -573,6 +674,42 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Speedtest Widget -->
+                <div id="widget-speedtest" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-tachometer-alt" style="color: #3b82f6;"></i>
+                        <h3>Speed Test</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="speedtest-download">0</span>
+                            <span class="widget-label">Download (Mbps)</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="speedtest-upload">0</span>
+                            <span class="widget-label">Upload (Mbps)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Uptime Kuma Widget -->
+                <div id="widget-uptime" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-heartbeat" style="color: #10b981;"></i>
+                        <h3>Service Uptime</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="uptime-online">0</span>
+                            <span class="widget-label">Services Online</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="uptime-total">0</span>
+                            <span class="widget-label">Total Monitored</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -621,6 +758,32 @@
     </main>
 
     <script>
+        // Service URL mappings for clickable cards
+        const SERVICE_URLS = {
+            plex: 'https://app.plex.tv',
+            tautulli: '/tautulli',
+            overseerr: '/overseerr',
+            sonarr: '/sonarr',
+            radarr: '/radarr',
+            prowlarr: '/prowlarr',
+            lidarr: '/lidarr',
+            tdarr: '/tdarr',
+            jellyfin: '/jellyfin',
+            portainer: '/portainer',
+            grafana: '/grafana',
+            pihole: '/admin',
+            nextcloud: '/nextcloud',
+            photoprism: '/photoprism',
+            immich: '/immich',
+            homepage: '/',
+            heimdall: '/',
+            scrutiny: '/scrutiny',
+            uptime: '/uptime',
+            'uptime-kuma': '/uptime',
+            speedtest: '/speedtest',
+            'speedtest-tracker': '/speedtest',
+        };
+
         // Icon mappings
         const APP_ICONS = {
             plex: { icon: 'fab fa-plex', color: '#e5a00d' },
@@ -759,9 +922,12 @@
                 const cpuClass = container.cpu > 75 ? 'progress-high' : container.cpu > 50 ? 'progress-medium' : 'progress-low';
                 const memClass = container.memory > 75 ? 'progress-high' : container.memory > 50 ? 'progress-medium' : 'progress-low';
                 const isRunning = container.status === 'running';
+                const serviceUrl = SERVICE_URLS[container.appType] || SERVICE_URLS[container.name.toLowerCase()];
+                const isClickable = serviceUrl && isRunning;
 
                 return `
-                    <div class="container-card rounded-2xl p-6 shadow-xl">
+                    <div class="container-card rounded-2xl p-6 shadow-xl ${isClickable ? 'clickable' : ''}"
+                         ${isClickable ? `onclick="window.open('${serviceUrl}', '_blank')"` : ''}>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -978,6 +1144,35 @@
                         criticalElement.style.webkitBackgroundClip = 'text';
                         criticalElement.style.webkitTextFillColor = 'transparent';
                     }
+                }
+
+                // Update Speedtest widget and hero section
+                if (widgets.speedtest && widgets.speedtest.available) {
+                    // Show and update hero section
+                    const heroSection = document.getElementById('hero-speedtest');
+                    heroSection.style.display = 'block';
+                    document.getElementById('hero-download').textContent = widgets.speedtest.download.toFixed(0);
+                    document.getElementById('hero-upload').textContent = widgets.speedtest.upload.toFixed(0);
+                    document.getElementById('hero-ping').textContent = widgets.speedtest.ping.toFixed(1);
+                    document.getElementById('hero-speedtest-server').textContent = `Server: ${widgets.speedtest.server || 'Unknown'}`;
+
+                    if (widgets.speedtest.timestamp) {
+                        const date = new Date(widgets.speedtest.timestamp);
+                        const timeStr = date.toLocaleString();
+                        document.getElementById('hero-speedtest-time').textContent = `Last tested: ${timeStr}`;
+                    }
+
+                    // Update speedtest widget
+                    document.getElementById('widget-speedtest').style.display = 'block';
+                    document.getElementById('speedtest-download').textContent = widgets.speedtest.download.toFixed(1);
+                    document.getElementById('speedtest-upload').textContent = widgets.speedtest.upload.toFixed(1);
+                }
+
+                // Update Uptime Kuma widget
+                if (widgets.uptime_kuma && widgets.uptime_kuma.available) {
+                    document.getElementById('widget-uptime').style.display = 'block';
+                    document.getElementById('uptime-online').textContent = widgets.uptime_kuma.up_count || 0;
+                    document.getElementById('uptime-total').textContent = widgets.uptime_kuma.total_count || 0;
                 }
             } catch (error) {
                 console.error('Error fetching widgets:', error);
