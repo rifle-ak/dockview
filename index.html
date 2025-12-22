@@ -546,16 +546,24 @@
                 <div id="widget-tautulli" class="widget-card" style="display: none;">
                     <div class="widget-header">
                         <i class="fab fa-plex" style="color: #e5a00d;"></i>
-                        <h3>Plex Activity</h3>
+                        <h3>Plex Library</h3>
                     </div>
                     <div class="widget-content">
                         <div class="widget-stat">
-                            <span class="widget-value" id="tautulli-streams">0</span>
-                            <span class="widget-label">Active Streams</span>
+                            <span class="widget-value" id="tautulli-movies">0</span>
+                            <span class="widget-label">Movies</span>
                         </div>
                         <div class="widget-stat">
-                            <span class="widget-value" id="tautulli-bandwidth">0 Mbps</span>
-                            <span class="widget-label">Bandwidth</span>
+                            <span class="widget-value" id="tautulli-shows">0</span>
+                            <span class="widget-label">TV Shows</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tautulli-episodes">0</span>
+                            <span class="widget-label">Episodes</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="tautulli-plays">0</span>
+                            <span class="widget-label">Plays Today</span>
                         </div>
                     </div>
                 </div>
@@ -600,16 +608,24 @@
                 <div id="widget-sonarr" class="widget-card" style="display: none;">
                     <div class="widget-header">
                         <i class="fas fa-tv" style="color: #4ECDC4;"></i>
-                        <h3>Sonarr</h3>
+                        <h3>Sonarr Library</h3>
                     </div>
                     <div class="widget-content">
                         <div class="widget-stat">
-                            <span class="widget-value" id="sonarr-queue">0</span>
-                            <span class="widget-label">In Queue</span>
+                            <span class="widget-value" id="sonarr-shows">0</span>
+                            <span class="widget-label">TV Shows</span>
                         </div>
                         <div class="widget-stat">
-                            <span class="widget-value" id="sonarr-upcoming">0</span>
-                            <span class="widget-label">Airing Today</span>
+                            <span class="widget-value" id="sonarr-episodes">0</span>
+                            <span class="widget-label">Episodes</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="sonarr-monitored">0</span>
+                            <span class="widget-label">Monitored</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="sonarr-queue">0</span>
+                            <span class="widget-label">Downloading</span>
                         </div>
                     </div>
                 </div>
@@ -618,16 +634,24 @@
                 <div id="widget-radarr" class="widget-card" style="display: none;">
                     <div class="widget-header">
                         <i class="fas fa-film" style="color: #ffc230;"></i>
-                        <h3>Radarr</h3>
+                        <h3>Radarr Library</h3>
                     </div>
                     <div class="widget-content">
                         <div class="widget-stat">
-                            <span class="widget-value" id="radarr-queue">0</span>
-                            <span class="widget-label">In Queue</span>
+                            <span class="widget-value" id="radarr-total">0</span>
+                            <span class="widget-label">Total Movies</span>
                         </div>
                         <div class="widget-stat">
-                            <span class="widget-value" id="radarr-upcoming">0</span>
-                            <span class="widget-label">Releasing Today</span>
+                            <span class="widget-value" id="radarr-downloaded">0</span>
+                            <span class="widget-label">Downloaded</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="radarr-monitored">0</span>
+                            <span class="widget-label">Monitored</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="radarr-queue">0</span>
+                            <span class="widget-label">Downloading</span>
                         </div>
                     </div>
                 </div>
@@ -677,11 +701,19 @@
                     <div class="widget-content">
                         <div class="widget-stat">
                             <span class="widget-value" id="scrutiny-devices">0</span>
-                            <span class="widget-label">Total Devices</span>
+                            <span class="widget-label">Devices</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="scrutiny-temp">--°C</span>
+                            <span class="widget-label">Avg Temp</span>
                         </div>
                         <div class="widget-stat">
                             <span class="widget-value" id="scrutiny-critical">0</span>
                             <span class="widget-label">Critical</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="scrutiny-status">✓</span>
+                            <span class="widget-label">Status</span>
                         </div>
                     </div>
                 </div>
@@ -1116,10 +1148,10 @@
                 if (widgets.tautulli && widgets.tautulli.available) {
                     console.log('📺 Tautulli data:', widgets.tautulli);
                     document.getElementById('widget-tautulli').style.display = 'block';
-                    document.getElementById('tautulli-streams').textContent = widgets.tautulli.stream_count || 0;
-                    const bandwidth = widgets.tautulli.total_bandwidth ?
-                        (widgets.tautulli.total_bandwidth / 1000).toFixed(1) + ' Mbps' : '0 Mbps';
-                    document.getElementById('tautulli-bandwidth').textContent = bandwidth;
+                    document.getElementById('tautulli-movies').textContent = (widgets.tautulli.total_movies || 0).toLocaleString();
+                    document.getElementById('tautulli-shows').textContent = (widgets.tautulli.total_shows || 0).toLocaleString();
+                    document.getElementById('tautulli-episodes').textContent = (widgets.tautulli.total_episodes || 0).toLocaleString();
+                    document.getElementById('tautulli-plays').textContent = widgets.tautulli.plays_today || 0;
                     visibleWidgets++;
                 }
 
@@ -1145,8 +1177,10 @@
                 if (widgets.sonarr && widgets.sonarr.available) {
                     console.log('📺 Sonarr data:', widgets.sonarr);
                     document.getElementById('widget-sonarr').style.display = 'block';
+                    document.getElementById('sonarr-shows').textContent = (widgets.sonarr.total_shows || 0).toLocaleString();
+                    document.getElementById('sonarr-episodes').textContent = (widgets.sonarr.total_episodes || 0).toLocaleString();
+                    document.getElementById('sonarr-monitored').textContent = (widgets.sonarr.monitored_shows || 0).toLocaleString();
                     document.getElementById('sonarr-queue').textContent = widgets.sonarr.queue_count || 0;
-                    document.getElementById('sonarr-upcoming').textContent = widgets.sonarr.upcoming_today || 0;
                     visibleWidgets++;
                 }
 
@@ -1154,8 +1188,10 @@
                 if (widgets.radarr && widgets.radarr.available) {
                     console.log('🎬 Radarr data:', widgets.radarr);
                     document.getElementById('widget-radarr').style.display = 'block';
+                    document.getElementById('radarr-total').textContent = (widgets.radarr.total_movies || 0).toLocaleString();
+                    document.getElementById('radarr-downloaded').textContent = (widgets.radarr.downloaded_movies || 0).toLocaleString();
+                    document.getElementById('radarr-monitored').textContent = (widgets.radarr.monitored_movies || 0).toLocaleString();
                     document.getElementById('radarr-queue').textContent = widgets.radarr.queue_count || 0;
-                    document.getElementById('radarr-upcoming').textContent = widgets.radarr.upcoming_today || 0;
                     visibleWidgets++;
                 }
 
@@ -1182,15 +1218,45 @@
                     console.log('💽 Scrutiny data:', widgets.scrutiny);
                     document.getElementById('widget-scrutiny').style.display = 'block';
                     document.getElementById('scrutiny-devices').textContent = widgets.scrutiny.total_devices || 0;
+
+                    // Temperature with color coding
+                    const temp = widgets.scrutiny.avg_temp || 0;
+                    const tempElement = document.getElementById('scrutiny-temp');
+                    if (temp > 0) {
+                        tempElement.textContent = temp + '°C';
+                        // Color code: green < 45°C, yellow 45-55°C, red > 55°C
+                        if (temp > 55) {
+                            tempElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                        } else if (temp > 45) {
+                            tempElement.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                        } else {
+                            tempElement.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                        }
+                        tempElement.style.webkitBackgroundClip = 'text';
+                        tempElement.style.webkitTextFillColor = 'transparent';
+                    }
+
                     const critical = widgets.scrutiny.critical || 0;
                     const criticalElement = document.getElementById('scrutiny-critical');
                     criticalElement.textContent = critical;
-                    // Change color if critical
                     if (critical > 0) {
                         criticalElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
                         criticalElement.style.webkitBackgroundClip = 'text';
                         criticalElement.style.webkitTextFillColor = 'transparent';
                     }
+
+                    // Status indicator
+                    const statusElement = document.getElementById('scrutiny-status');
+                    if (critical > 0) {
+                        statusElement.textContent = '⚠';
+                        statusElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                    } else {
+                        statusElement.textContent = '✓';
+                        statusElement.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    }
+                    statusElement.style.webkitBackgroundClip = 'text';
+                    statusElement.style.webkitTextFillColor = 'transparent';
+
                     visibleWidgets++;
                 }
 
