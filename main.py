@@ -505,7 +505,7 @@ async def get_pihole_stats():
             async with session.get(stats_url, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
-                    logger.info("🛡️ Pi-hole: Successfully fetched stats")
+                    logger.info(f"🛡️ Pi-hole: Successfully fetched stats - Response: {json.dumps(data, indent=2)[:500]}")
 
                     # Handle response format
                     stats = data.get('stats', data)
@@ -639,24 +639,37 @@ async def get_scrutiny_stats():
     total_devices = 0
     critical = 0
 
-    # Structure 1: {data: {summary: {total_device_count: N}}}
-    if 'data' in data and isinstance(data['data'], dict):
+    # Structure 1: {data: {summary: {"WWN1": {...}, "WWN2": {...}}}} - Dictionary of devices by WWN
+    if 'data' in data and isinstance(data['data'], dict) and 'summary' in data['data']:
+        summary = data['data']['summary']
+        if isinstance(summary, dict):
+            # Count the number of device entries (each key is a WWN)
+            total_devices = len(summary)
+            # Count critical devices (device_status > 0 means issues)
+            for wwn, device_data in summary.items():
+                device_info = device_data.get('device', {})
+                # Check for critical status or device_status field
+                if device_data.get('device_status', 0) > 0 or device_info.get('device_status', 0) > 0:
+                    critical += 1
+
+    # Structure 2: {data: {summary: {total_device_count: N}}} - Count fields
+    if total_devices == 0 and 'data' in data and isinstance(data['data'], dict):
         summary = data['data'].get('summary', {})
         total_devices = summary.get('total_device_count', 0)
         critical = summary.get('critical_device_count', 0)
 
-    # Structure 2: {summary: {devices: N}} or direct fields
+    # Structure 3: {summary: {devices: N}} or direct fields
     if total_devices == 0 and 'summary' in data:
         summary = data['summary']
         total_devices = summary.get('devices', summary.get('total_devices', 0))
         critical = summary.get('critical', summary.get('critical_devices', 0))
 
-    # Structure 3: Direct fields in root
+    # Structure 4: Direct fields in root
     if total_devices == 0:
         total_devices = data.get('total_devices', data.get('devices', 0))
         critical = data.get('critical', data.get('critical_devices', 0))
 
-    # Structure 4: Array of devices (count them)
+    # Structure 5: Array of devices (count them)
     if total_devices == 0 and 'data' in data and isinstance(data['data'], list):
         devices = data['data']
         total_devices = len(devices)
