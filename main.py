@@ -197,7 +197,7 @@ async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str,
             headers['X-Gotify-Key'] = api_key
 
     try:
-        timeout = aiohttp.ClientTimeout(total=15)  # Increased from 5 to 15 seconds
+        timeout = aiohttp.ClientTimeout(total=3)  # Fast 3-second timeout for speed
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(full_url, headers=headers, params=params) as response:
                 if response.status == 200:
@@ -208,7 +208,7 @@ async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str,
                     logger.warning(f"Service {service_name} returned status {response.status} from {full_url}")
                     return None
     except asyncio.TimeoutError:
-        logger.warning(f"Timeout (15s) fetching data from {service_name} at {full_url}")
+        logger.warning(f"Timeout (3s) fetching data from {service_name} at {full_url}")
         return None
     except aiohttp.ClientError as e:
         logger.error(f"Network error fetching from {service_name}: {e}")
@@ -371,27 +371,30 @@ async def get_all_widgets():
         logger.info(f"Returning cached widget data ({_widget_cache['ttl']}s TTL)")
         return _widget_cache['data']
 
-    # Fetch all widgets concurrently
-    tasks = {
-        'tautulli': get_tautulli_stats(),
-        'pihole': get_pihole_stats(),
-        'overseerr': get_overseerr_stats(),
-        'sonarr': get_sonarr_stats(),
-        'radarr': get_radarr_stats(),
-        'tdarr': get_tdarr_stats(),
-        'prowlarr': get_prowlarr_stats(),
-        'scrutiny': get_scrutiny_stats(),
-        'speedtest': get_speedtest_stats(),
-        'uptime_kuma': get_uptime_kuma_stats(),
-    }
+    # Fetch all widgets concurrently with asyncio.gather for maximum speed
+    tasks = [
+        ('tautulli', get_tautulli_stats()),
+        ('pihole', get_pihole_stats()),
+        ('overseerr', get_overseerr_stats()),
+        ('sonarr', get_sonarr_stats()),
+        ('radarr', get_radarr_stats()),
+        ('tdarr', get_tdarr_stats()),
+        ('prowlarr', get_prowlarr_stats()),
+        ('scrutiny', get_scrutiny_stats()),
+        ('speedtest', get_speedtest_stats()),
+        ('uptime_kuma', get_uptime_kuma_stats()),
+    ]
+
+    # Run all tasks concurrently with return_exceptions to not block on failures
+    task_results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
 
     results = {}
-    for name, task in tasks.items():
-        try:
-            results[name] = await task
-        except Exception as e:
-            logger.error(f"Error fetching {name} widget: {e}")
+    for (name, _), result in zip(tasks, task_results):
+        if isinstance(result, Exception):
+            logger.error(f"Error fetching {name} widget: {result}")
             results[name] = None
+        else:
+            results[name] = result
 
     response = {
         "enabled": True,
