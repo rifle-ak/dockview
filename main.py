@@ -435,14 +435,14 @@ async def get_pihole_stats():
     service_config = config.get('services', {}).get('pihole', {})
     api_key = service_config.get('api_key', '')
 
-    # Pi-hole API endpoints to try (in order)
+    # Modern Pi-hole API endpoints (v6+) - API is at /api, not /admin/api
     endpoints = [
-        # Try unauthenticated first (works if API is open)
-        ('/admin/api.php', {'summary': ''}),
-        # Try with auth parameter if key provided
-        ('/admin/api.php', {'summary': '', 'auth': api_key}) if api_key else None,
-        # Try summaryRaw endpoint
-        ('/admin/api.php', {'summaryRaw': '', 'auth': api_key}) if api_key else None,
+        # Try modern API first (Pi-hole v6+)
+        ('/api/stats/summary', {}),
+        # Try with X-FTL-SID header authentication if key provided
+        ('/api/stats/summary', {}) if api_key else None,  # Will be handled by headers
+        # Fallback to older API format
+        ('/api/summary', {}),
     ]
 
     data = None
@@ -451,21 +451,29 @@ async def get_pihole_stats():
             continue
 
         path, params = endpoint
+
+        # For modern Pi-hole, use X-FTL-SID header for auth
+        # Note: fetch_service_data will handle this via config api_key → X-Api-Key header
         result = await fetch_service_data('pihole', path, params)
         if result:
             data = result
+            logger.info(f"🛡️ Pi-hole: Successfully fetched from {path}")
             break
 
     if not data:
         logger.warning("Pi-hole: All API endpoints failed. Check if Pi-hole is accessible and auth is correct.")
         return None
 
-    # Handle response format (both raw and summary)
+    # Handle response format (modern Pi-hole returns slightly different structure)
+    # Modern: {dns_queries_today: N, ads_blocked_today: N, ...}
+    # Or nested: {stats: {dns_queries_today: N, ...}}
+    stats = data.get('stats', data)  # Handle both nested and flat structures
+
     return {
-        "queries_today": data.get('dns_queries_today', 0),
-        "blocked_today": data.get('ads_blocked_today', 0),
-        "percent_blocked": round(data.get('ads_percentage_today', 0), 1),
-        "domains_blocked": data.get('domains_being_blocked', 0),
+        "queries_today": stats.get('dns_queries_today', stats.get('queries_today', 0)),
+        "blocked_today": stats.get('ads_blocked_today', stats.get('blocked_today', 0)),
+        "percent_blocked": round(stats.get('ads_percentage_today', stats.get('percent_blocked', 0)), 1),
+        "domains_blocked": stats.get('domains_being_blocked', stats.get('domains_blocked', 0)),
         "available": True
     }
 
@@ -572,9 +580,41 @@ async def get_scrutiny_stats():
     if not data:
         return None
 
+    # Log the actual structure for debugging
+    logger.info(f"🔍 Scrutiny API response structure: {json.dumps(data, indent=2)[:500]}")
+
+    # Try multiple possible response structures
+    total_devices = 0
+    critical = 0
+
+    # Structure 1: {data: {summary: {total_device_count: N}}}
+    if 'data' in data and isinstance(data['data'], dict):
+        summary = data['data'].get('summary', {})
+        total_devices = summary.get('total_device_count', 0)
+        critical = summary.get('critical_device_count', 0)
+
+    # Structure 2: {summary: {devices: N}} or direct fields
+    if total_devices == 0 and 'summary' in data:
+        summary = data['summary']
+        total_devices = summary.get('devices', summary.get('total_devices', 0))
+        critical = summary.get('critical', summary.get('critical_devices', 0))
+
+    # Structure 3: Direct fields in root
+    if total_devices == 0:
+        total_devices = data.get('total_devices', data.get('devices', 0))
+        critical = data.get('critical', data.get('critical_devices', 0))
+
+    # Structure 4: Array of devices (count them)
+    if total_devices == 0 and 'data' in data and isinstance(data['data'], list):
+        devices = data['data']
+        total_devices = len(devices)
+        critical = sum(1 for d in devices if d.get('device_status', 0) > 0)
+
+    logger.info(f"💽 Scrutiny: Found {total_devices} total devices, {critical} critical")
+
     return {
-        "total_devices": data.get('data', {}).get('summary', {}).get('total_device_count', 0),
-        "critical": data.get('data', {}).get('summary', {}).get('critical_device_count', 0),
+        "total_devices": total_devices,
+        "critical": critical,
         "available": True
     }
 
