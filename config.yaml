@@ -75,6 +75,18 @@ services:
     enabled: true
     url: "http://rdtclient:6500"
 
+  # Network Speed Testing
+  speedtest:
+    enabled: true
+    url: "http://speedtest-tracker:80"
+    api_key: ""  # Optional API key if configured
+
+  # Uptime Monitoring
+  uptime_kuma:
+    enabled: true
+    url: "http://uptime-kuma:3001"
+    api_key: ""  # Get from Uptime Kuma Settings > API Keys
+
 # Widget Display Settings
 widgets:
   # Show widgets at the top of the dashboard
