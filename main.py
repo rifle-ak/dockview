@@ -572,9 +572,41 @@ async def get_scrutiny_stats():
     if not data:
         return None
 
+    # Log the actual structure for debugging
+    logger.info(f"🔍 Scrutiny API response structure: {json.dumps(data, indent=2)[:500]}")
+
+    # Try multiple possible response structures
+    total_devices = 0
+    critical = 0
+
+    # Structure 1: {data: {summary: {total_device_count: N}}}
+    if 'data' in data and isinstance(data['data'], dict):
+        summary = data['data'].get('summary', {})
+        total_devices = summary.get('total_device_count', 0)
+        critical = summary.get('critical_device_count', 0)
+
+    # Structure 2: {summary: {devices: N}} or direct fields
+    if total_devices == 0 and 'summary' in data:
+        summary = data['summary']
+        total_devices = summary.get('devices', summary.get('total_devices', 0))
+        critical = summary.get('critical', summary.get('critical_devices', 0))
+
+    # Structure 3: Direct fields in root
+    if total_devices == 0:
+        total_devices = data.get('total_devices', data.get('devices', 0))
+        critical = data.get('critical', data.get('critical_devices', 0))
+
+    # Structure 4: Array of devices (count them)
+    if total_devices == 0 and 'data' in data and isinstance(data['data'], list):
+        devices = data['data']
+        total_devices = len(devices)
+        critical = sum(1 for d in devices if d.get('device_status', 0) > 0)
+
+    logger.info(f"💽 Scrutiny: Found {total_devices} total devices, {critical} critical")
+
     return {
-        "total_devices": data.get('data', {}).get('summary', {}).get('total_device_count', 0),
-        "critical": data.get('data', {}).get('summary', {}).get('critical_device_count', 0),
+        "total_devices": total_devices,
+        "critical": critical,
         "available": True
     }
 
