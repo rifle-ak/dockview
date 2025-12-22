@@ -197,7 +197,7 @@ async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str,
             headers['X-Gotify-Key'] = api_key
 
     try:
-        timeout = aiohttp.ClientTimeout(total=3)  # Fast 3-second timeout for speed
+        timeout = aiohttp.ClientTimeout(total=6)  # 6-second timeout - balanced for reliability and speed
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(full_url, headers=headers, params=params) as response:
                 if response.status == 200:
@@ -208,7 +208,7 @@ async def fetch_service_data(service_name: str, endpoint: str, params: Dict[str,
                     logger.warning(f"Service {service_name} returned status {response.status} from {full_url}")
                     return None
     except asyncio.TimeoutError:
-        logger.warning(f"Timeout (3s) fetching data from {service_name} at {full_url}")
+        logger.warning(f"Timeout (6s) fetching data from {service_name} at {full_url}")
         return None
     except aiohttp.ClientError as e:
         logger.error(f"Network error fetching from {service_name}: {e}")
@@ -285,16 +285,17 @@ def get_containers():
     # Check cache first
     current_time = time.time()
     if _container_cache['data'] and (current_time - _container_cache['timestamp']) < _container_cache['ttl']:
-        logger.info(f"Returning cached container data ({_container_cache['ttl']}s TTL)")
+        logger.info(f"✓ Returning cached container data (age: {int(current_time - _container_cache['timestamp'])}s / {_container_cache['ttl']}s TTL)")
         return _container_cache['data']
 
+    start_time = time.time()
     containers_list = []
     all_containers = client.containers.list(all=True)
 
-    logger.info(f"Fetching stats for {len(all_containers)} containers...")
+    logger.info(f"⏱ Fetching stats for {len(all_containers)} containers...")
 
     # Process containers in parallel using ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=20) as executor:  # Increased from 10 to 20 for better parallelization
         future_to_container = {executor.submit(process_container, c): c for c in all_containers}
 
         for future in as_completed(future_to_container):
@@ -305,7 +306,8 @@ def get_containers():
     # Sort by status (running first) then by name
     containers_list.sort(key=lambda x: (x['status'] != 'running', x['name']))
 
-    logger.info(f"Successfully processed {len(containers_list)} containers")
+    elapsed = time.time() - start_time
+    logger.info(f"✓ Successfully processed {len(containers_list)} containers in {elapsed:.2f}s")
 
     # Update cache
     _container_cache['data'] = containers_list
@@ -576,7 +578,7 @@ async def get_speedtest_stats():
         "download": round(result.get('download', 0), 2),  # Mbps
         "upload": round(result.get('upload', 0), 2),  # Mbps
         "ping": round(result.get('ping', 0), 2),  # ms
-        "server": result.get('server', {}).get('name', 'Unknown'),
+        "server": result.get('server_name', 'Unknown'),  # Fixed: server_name is a direct field
         "timestamp": result.get('created_at', ''),
         "available": True
     }
