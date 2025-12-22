@@ -33,6 +33,13 @@ _widget_cache = {
     'ttl': 30  # Cache widgets for 30 seconds
 }
 
+# Cache for Pi-hole session ID (valid for ~1 hour)
+_pihole_session_cache = {
+    'sid': None,
+    'timestamp': 0,
+    'ttl': 3600  # Session valid for 1 hour
+}
+
 # Load configuration
 def load_config():
     """Load configuration from config.yaml"""
@@ -430,53 +437,97 @@ async def get_tautulli_stats():
         "available": True
     }
 
-@app.get("/widgets/pihole")
-async def get_pihole_stats():
-    """Get Pi-hole DNS blocking stats"""
+async def get_pihole_session():
+    """Authenticate with Pi-hole v6 and get session ID"""
+    current_time = time.time()
+
+    # Return cached session if still valid
+    if _pihole_session_cache['sid'] and (current_time - _pihole_session_cache['timestamp']) < _pihole_session_cache['ttl']:
+        return _pihole_session_cache['sid']
+
     service_config = config.get('services', {}).get('pihole', {})
-    api_key = service_config.get('api_key', '')
+    password = service_config.get('api_key', '')
 
-    # Modern Pi-hole API endpoints (v6+) - API is at /api, not /admin/api
-    endpoints = [
-        # Try modern API first (Pi-hole v6+)
-        ('/api/stats/summary', {}),
-        # Try with X-FTL-SID header authentication if key provided
-        ('/api/stats/summary', {}) if api_key else None,  # Will be handled by headers
-        # Fallback to older API format
-        ('/api/summary', {}),
-    ]
-
-    data = None
-    for endpoint in endpoints:
-        if endpoint is None:
-            continue
-
-        path, params = endpoint
-
-        # For modern Pi-hole, use X-FTL-SID header for auth
-        # Note: fetch_service_data will handle this via config api_key → X-Api-Key header
-        result = await fetch_service_data('pihole', path, params)
-        if result:
-            data = result
-            logger.info(f"🛡️ Pi-hole: Successfully fetched from {path}")
-            break
-
-    if not data:
-        logger.warning("Pi-hole: All API endpoints failed. Check if Pi-hole is accessible and auth is correct.")
+    if not password:
+        logger.info("Pi-hole: No password configured, trying unauthenticated access")
         return None
 
-    # Handle response format (modern Pi-hole returns slightly different structure)
-    # Modern: {dns_queries_today: N, ads_blocked_today: N, ...}
-    # Or nested: {stats: {dns_queries_today: N, ...}}
-    stats = data.get('stats', data)  # Handle both nested and flat structures
+    # Pi-hole v6 authentication endpoint
+    base_url = service_config.get('url', 'http://pihole:80')
+    auth_url = f"{base_url}/api/auth"
 
-    return {
-        "queries_today": stats.get('dns_queries_today', stats.get('queries_today', 0)),
-        "blocked_today": stats.get('ads_blocked_today', stats.get('blocked_today', 0)),
-        "percent_blocked": round(stats.get('ads_percentage_today', stats.get('percent_blocked', 0)), 1),
-        "domains_blocked": stats.get('domains_being_blocked', stats.get('domains_blocked', 0)),
-        "available": True
-    }
+    try:
+        timeout = aiohttp.ClientTimeout(total=6)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # POST to /api/auth with password to get session ID
+            async with session.post(auth_url, json={"password": password}) as response:
+                if response.status == 200:
+                    auth_data = await response.json()
+                    sid = auth_data.get('session', {}).get('sid')
+
+                    if sid:
+                        # Cache the session ID
+                        _pihole_session_cache['sid'] = sid
+                        _pihole_session_cache['timestamp'] = current_time
+                        logger.info("🛡️ Pi-hole: Successfully authenticated and obtained session ID")
+                        return sid
+                    else:
+                        logger.warning("Pi-hole: Authentication succeeded but no SID in response")
+                        return None
+                else:
+                    logger.warning(f"Pi-hole: Authentication failed with status {response.status}")
+                    return None
+    except Exception as e:
+        logger.error(f"Pi-hole: Authentication error: {e}")
+        return None
+
+@app.get("/widgets/pihole")
+async def get_pihole_stats():
+    """Get Pi-hole DNS blocking stats (v6+ with session-based auth)"""
+    service_config = config.get('services', {}).get('pihole', {})
+    base_url = service_config.get('url', 'http://pihole:80')
+
+    # Get session ID for authentication
+    sid = await get_pihole_session()
+
+    # Try to fetch stats
+    stats_url = f"{base_url}/api/stats/summary"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=6)
+        headers = {}
+
+        # Add session ID to headers if available
+        if sid:
+            headers['X-FTL-SID'] = sid
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(stats_url, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logger.info("🛡️ Pi-hole: Successfully fetched stats")
+
+                    # Handle response format
+                    stats = data.get('stats', data)
+
+                    return {
+                        "queries_today": stats.get('dns_queries_today', stats.get('queries_today', 0)),
+                        "blocked_today": stats.get('ads_blocked_today', stats.get('blocked_today', 0)),
+                        "percent_blocked": round(stats.get('ads_percentage_today', stats.get('percent_blocked', 0)), 1),
+                        "domains_blocked": stats.get('domains_being_blocked', stats.get('domains_blocked', 0)),
+                        "available": True
+                    }
+                elif response.status == 401:
+                    # Session expired, clear cache and retry once
+                    logger.warning("Pi-hole: Session expired (401), clearing cache")
+                    _pihole_session_cache['sid'] = None
+                    return None
+                else:
+                    logger.warning(f"Pi-hole: Stats request failed with status {response.status}")
+                    return None
+    except Exception as e:
+        logger.error(f"Pi-hole: Error fetching stats: {e}")
+        return None
 
 @app.get("/widgets/overseerr")
 async def get_overseerr_stats():
