@@ -72,6 +72,17 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         /* Uptime badge */
         .uptime-badge {
             display: inline-flex;
@@ -470,7 +481,7 @@
     <!-- Main Content -->
     <main class="container mx-auto px-6 py-8">
         <!-- Hero Section - Speedtest Display -->
-        <div id="hero-speedtest" class="mb-12" style="display: none;">
+        <div id="hero-speedtest" class="mb-12" style="display: none; animation: slideInDown 0.5s ease-out;">
             <div class="relative overflow-hidden rounded-3xl p-8 glass border-2 border-indigo-500/30 shadow-2xl">
                 <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10"></div>
                 <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/20 to-cyan-500/20 rounded-full blur-3xl -z-10"></div>
@@ -1170,12 +1181,21 @@
 
                 // Update Speedtest widget and hero section
                 if (widgets.speedtest && widgets.speedtest.available) {
+                    console.log('🎯 Showing speedtest hero section with data:', widgets.speedtest);
+
                     // Show and update hero section
                     const heroSection = document.getElementById('hero-speedtest');
                     heroSection.style.display = 'block';
-                    document.getElementById('hero-download').textContent = widgets.speedtest.download.toFixed(0);
-                    document.getElementById('hero-upload').textContent = widgets.speedtest.upload.toFixed(0);
-                    document.getElementById('hero-ping').textContent = widgets.speedtest.ping.toFixed(1);
+
+                    // Update hero numbers with animation
+                    const downloadEl = document.getElementById('hero-download');
+                    const uploadEl = document.getElementById('hero-upload');
+                    const pingEl = document.getElementById('hero-ping');
+
+                    downloadEl.textContent = widgets.speedtest.download.toFixed(0);
+                    uploadEl.textContent = widgets.speedtest.upload.toFixed(0);
+                    pingEl.textContent = widgets.speedtest.ping.toFixed(1);
+
                     document.getElementById('hero-speedtest-server').textContent = `Server: ${widgets.speedtest.server || 'Unknown'}`;
 
                     if (widgets.speedtest.timestamp) {
@@ -1189,7 +1209,13 @@
                     document.getElementById('speedtest-download').textContent = widgets.speedtest.download.toFixed(1);
                     document.getElementById('speedtest-upload').textContent = widgets.speedtest.upload.toFixed(1);
                     visibleWidgets++;
-                    console.log('📡 Speedtest widget loaded:', widgets.speedtest);
+
+                    console.log(`✅ Hero section now visible! Download: ${widgets.speedtest.download} Mbps, Upload: ${widgets.speedtest.upload} Mbps`);
+
+                    // Scroll to hero section smoothly to make it visible
+                    setTimeout(() => {
+                        heroSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
                 }
 
                 // Update Uptime Kuma widget
@@ -1201,6 +1227,11 @@
                 }
 
                 console.log(`✓ Displayed ${visibleWidgets} widgets`);
+
+                // Show toast notification when widgets load
+                if (visibleWidgets > 0) {
+                    showToast(`Loaded ${visibleWidgets} widget${visibleWidgets > 1 ? 's' : ''}`, 'success');
+                }
             } catch (error) {
                 if (error.name === 'AbortError') {
                     console.warn('⏱ Widget fetch timed out after 8 seconds');
