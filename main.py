@@ -388,16 +388,24 @@ async def get_tautulli_stats():
 @app.get("/widgets/pihole")
 async def get_pihole_stats():
     """Get Pi-hole DNS blocking stats"""
-    data = await fetch_service_data('pihole', '/api/summary')
+    # Try v6 API first
+    data = await fetch_service_data('pihole', '/api/stats/summary')
+
+    # If that fails, try v5 API
+    if not data:
+        data = await fetch_service_data('pihole', '/admin/api.php', {'summary': ''})
 
     if not data:
         return None
 
+    # Handle both v5 and v6 response formats
+    summary = data.get('summary', data)  # v6 nests under 'summary', v5 doesn't
+
     return {
-        "queries_today": data.get('dns_queries_today', 0),
-        "blocked_today": data.get('ads_blocked_today', 0),
-        "percent_blocked": round(data.get('ads_percentage_today', 0), 1),
-        "domains_blocked": data.get('domains_being_blocked', 0),
+        "queries_today": summary.get('dns_queries_today', 0),
+        "blocked_today": summary.get('ads_blocked_today', 0),
+        "percent_blocked": round(summary.get('ads_percentage_today', 0), 1),
+        "domains_blocked": summary.get('domains_being_blocked', 0),
         "available": True
     }
 
