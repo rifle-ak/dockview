@@ -9,6 +9,7 @@ import logging
 import yaml
 import aiohttp
 import asyncio
+import time
 from typing import Optional, Dict, Any
 
 # Configure logging
@@ -17,6 +18,19 @@ logger = logging.getLogger(__name__)
 
 # Initialize Docker client
 client = docker.from_env()
+
+# In-memory cache for container stats
+_container_cache = {
+    'data': None,
+    'timestamp': 0,
+    'ttl': 10  # Cache for 10 seconds
+}
+
+_widget_cache = {
+    'data': None,
+    'timestamp': 0,
+    'ttl': 30  # Cache widgets for 30 seconds
+}
 
 # Load configuration
 def load_config():
@@ -267,7 +281,13 @@ def process_container(c):
         return None
 
 def get_containers():
-    """Get all containers with their stats (parallelized for speed)"""
+    """Get all containers with their stats (parallelized for speed, with caching)"""
+    # Check cache first
+    current_time = time.time()
+    if _container_cache['data'] and (current_time - _container_cache['timestamp']) < _container_cache['ttl']:
+        logger.info(f"Returning cached container data ({_container_cache['ttl']}s TTL)")
+        return _container_cache['data']
+
     containers_list = []
     all_containers = client.containers.list(all=True)
 
@@ -286,6 +306,11 @@ def get_containers():
     containers_list.sort(key=lambda x: (x['status'] != 'running', x['name']))
 
     logger.info(f"Successfully processed {len(containers_list)} containers")
+
+    # Update cache
+    _container_cache['data'] = containers_list
+    _container_cache['timestamp'] = current_time
+
     return containers_list
 
 @app.get("/")
@@ -334,11 +359,17 @@ async def start_container(container_id: str):
 
 @app.get("/widgets/all")
 async def get_all_widgets():
-    """Get all widget data in a single request"""
+    """Get all widget data in a single request (with caching)"""
     widgets_config = config.get('widgets', {})
 
     if not widgets_config.get('show_widgets', False):
         return {"enabled": False, "widgets": {}}
+
+    # Check cache first
+    current_time = time.time()
+    if _widget_cache['data'] and (current_time - _widget_cache['timestamp']) < _widget_cache['ttl']:
+        logger.info(f"Returning cached widget data ({_widget_cache['ttl']}s TTL)")
+        return _widget_cache['data']
 
     # Fetch all widgets concurrently
     tasks = {
@@ -360,10 +391,16 @@ async def get_all_widgets():
             logger.error(f"Error fetching {name} widget: {e}")
             results[name] = None
 
-    return {
+    response = {
         "enabled": True,
         "widgets": results
     }
+
+    # Update cache
+    _widget_cache['data'] = response
+    _widget_cache['timestamp'] = current_time
+
+    return response
 
 @app.get("/widgets/tautulli")
 async def get_tautulli_stats():
