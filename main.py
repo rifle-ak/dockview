@@ -432,24 +432,30 @@ async def get_tautulli_stats():
 @app.get("/widgets/pihole")
 async def get_pihole_stats():
     """Get Pi-hole DNS blocking stats"""
-    # Try v6 API first
-    data = await fetch_service_data('pihole', '/api/stats/summary')
+    service_config = config.get('services', {}).get('pihole', {})
+    api_key = service_config.get('api_key', '')
 
-    # If that fails, try v5 API
+    # Try v5 API with authentication
+    if api_key:
+        # For Pi-hole with password, use auth parameter
+        data = await fetch_service_data('pihole', '/admin/api.php', {'summaryRaw': '', 'auth': api_key})
+    else:
+        # Try without auth
+        data = await fetch_service_data('pihole', '/admin/api.php', {'summaryRaw': ''})
+
     if not data:
+        # Try alternative endpoint
         data = await fetch_service_data('pihole', '/admin/api.php', {'summary': ''})
 
     if not data:
         return None
 
-    # Handle both v5 and v6 response formats
-    summary = data.get('summary', data)  # v6 nests under 'summary', v5 doesn't
-
+    # Handle response format
     return {
-        "queries_today": summary.get('dns_queries_today', 0),
-        "blocked_today": summary.get('ads_blocked_today', 0),
-        "percent_blocked": round(summary.get('ads_percentage_today', 0), 1),
-        "domains_blocked": summary.get('domains_being_blocked', 0),
+        "queries_today": data.get('dns_queries_today', 0),
+        "blocked_today": data.get('ads_blocked_today', 0),
+        "percent_blocked": round(data.get('ads_percentage_today', 0), 1),
+        "domains_blocked": data.get('domains_being_blocked', 0),
         "available": True
     }
 

@@ -1114,8 +1114,9 @@
 
                 // Update Tautulli widget
                 if (widgets.tautulli && widgets.tautulli.available) {
+                    console.log('📺 Tautulli data:', widgets.tautulli);
                     document.getElementById('widget-tautulli').style.display = 'block';
-                    document.getElementById('tautulli-streams').textContent = widgets.tautulli.stream_count;
+                    document.getElementById('tautulli-streams').textContent = widgets.tautulli.stream_count || 0;
                     const bandwidth = widgets.tautulli.total_bandwidth ?
                         (widgets.tautulli.total_bandwidth / 1000).toFixed(1) + ' Mbps' : '0 Mbps';
                     document.getElementById('tautulli-bandwidth').textContent = bandwidth;
@@ -1124,51 +1125,64 @@
 
                 // Update Pi-hole widget
                 if (widgets.pihole && widgets.pihole.available) {
+                    console.log('🛡️ Pi-hole data:', widgets.pihole);
                     document.getElementById('widget-pihole').style.display = 'block';
-                    document.getElementById('pihole-blocked').textContent = widgets.pihole.blocked_today.toLocaleString();
-                    document.getElementById('pihole-percent').textContent = widgets.pihole.percent_blocked + '%';
+                    document.getElementById('pihole-blocked').textContent = (widgets.pihole.blocked_today || 0).toLocaleString();
+                    document.getElementById('pihole-percent').textContent = (widgets.pihole.percent_blocked || 0) + '%';
+                    visibleWidgets++;
                 }
 
                 // Update Overseerr widget
                 if (widgets.overseerr && widgets.overseerr.available) {
+                    console.log('🎫 Overseerr data:', widgets.overseerr);
                     document.getElementById('widget-overseerr').style.display = 'block';
-                    document.getElementById('overseerr-pending').textContent = widgets.overseerr.pending_requests;
-                    document.getElementById('overseerr-total').textContent = widgets.overseerr.total_requests;
+                    document.getElementById('overseerr-pending').textContent = widgets.overseerr.pending_requests || 0;
+                    document.getElementById('overseerr-total').textContent = widgets.overseerr.total_requests || 0;
+                    visibleWidgets++;
                 }
 
                 // Update Sonarr widget
                 if (widgets.sonarr && widgets.sonarr.available) {
+                    console.log('📺 Sonarr data:', widgets.sonarr);
                     document.getElementById('widget-sonarr').style.display = 'block';
-                    document.getElementById('sonarr-queue').textContent = widgets.sonarr.queue_count;
-                    document.getElementById('sonarr-upcoming').textContent = widgets.sonarr.upcoming_today;
+                    document.getElementById('sonarr-queue').textContent = widgets.sonarr.queue_count || 0;
+                    document.getElementById('sonarr-upcoming').textContent = widgets.sonarr.upcoming_today || 0;
+                    visibleWidgets++;
                 }
 
                 // Update Radarr widget
                 if (widgets.radarr && widgets.radarr.available) {
+                    console.log('🎬 Radarr data:', widgets.radarr);
                     document.getElementById('widget-radarr').style.display = 'block';
-                    document.getElementById('radarr-queue').textContent = widgets.radarr.queue_count;
-                    document.getElementById('radarr-upcoming').textContent = widgets.radarr.upcoming_today;
+                    document.getElementById('radarr-queue').textContent = widgets.radarr.queue_count || 0;
+                    document.getElementById('radarr-upcoming').textContent = widgets.radarr.upcoming_today || 0;
+                    visibleWidgets++;
                 }
 
                 // Update Tdarr widget
                 if (widgets.tdarr && widgets.tdarr.available) {
+                    console.log('💿 Tdarr data:', widgets.tdarr);
                     document.getElementById('widget-tdarr').style.display = 'block';
-                    document.getElementById('tdarr-queue').textContent = widgets.tdarr.queue_count;
-                    document.getElementById('tdarr-processing').textContent = widgets.tdarr.processing;
+                    document.getElementById('tdarr-queue').textContent = widgets.tdarr.queue_count || 0;
+                    document.getElementById('tdarr-processing').textContent = widgets.tdarr.processing || 0;
+                    visibleWidgets++;
                 }
 
                 // Update Prowlarr widget
                 if (widgets.prowlarr && widgets.prowlarr.available) {
+                    console.log('🔍 Prowlarr data:', widgets.prowlarr);
                     document.getElementById('widget-prowlarr').style.display = 'block';
-                    document.getElementById('prowlarr-enabled').textContent = widgets.prowlarr.enabled_indexers;
-                    document.getElementById('prowlarr-total').textContent = widgets.prowlarr.total_indexers;
+                    document.getElementById('prowlarr-enabled').textContent = widgets.prowlarr.enabled_indexers || 0;
+                    document.getElementById('prowlarr-total').textContent = widgets.prowlarr.total_indexers || 0;
+                    visibleWidgets++;
                 }
 
                 // Update Scrutiny widget
                 if (widgets.scrutiny && widgets.scrutiny.available) {
+                    console.log('💽 Scrutiny data:', widgets.scrutiny);
                     document.getElementById('widget-scrutiny').style.display = 'block';
-                    document.getElementById('scrutiny-devices').textContent = widgets.scrutiny.total_devices;
-                    const critical = widgets.scrutiny.critical;
+                    document.getElementById('scrutiny-devices').textContent = widgets.scrutiny.total_devices || 0;
+                    const critical = widgets.scrutiny.critical || 0;
                     const criticalElement = document.getElementById('scrutiny-critical');
                     criticalElement.textContent = critical;
                     // Change color if critical
@@ -1177,6 +1191,7 @@
                         criticalElement.style.webkitBackgroundClip = 'text';
                         criticalElement.style.webkitTextFillColor = 'transparent';
                     }
+                    visibleWidgets++;
                 }
 
                 // Update Speedtest widget and hero section
@@ -1227,10 +1242,13 @@
                 }
 
                 console.log(`✓ Displayed ${visibleWidgets} widgets`);
+                console.log('📊 Full widget response:', data.widgets);
 
                 // Show toast notification when widgets load
                 if (visibleWidgets > 0) {
                     showToast(`Loaded ${visibleWidgets} widget${visibleWidgets > 1 ? 's' : ''}`, 'success');
+                } else {
+                    console.warn('⚠️ No widgets displayed - check API keys in config.yaml');
                 }
             } catch (error) {
                 if (error.name === 'AbortError') {
