@@ -507,14 +507,29 @@ async def get_pihole_stats():
                     data = await response.json()
                     logger.info(f"🛡️ Pi-hole: Successfully fetched stats - Response: {json.dumps(data, indent=2)[:500]}")
 
-                    # Handle response format
-                    stats = data.get('stats', data)
+                    # Pi-hole v6 API structure: {queries: {total: N, blocked: N, percent_blocked: X}}
+                    # Older versions: {dns_queries_today: N, ads_blocked_today: N, ...}
+
+                    queries = data.get('queries', {})
+
+                    # Try v6 format first (nested under 'queries')
+                    queries_today = queries.get('total', 0)
+                    blocked_today = queries.get('blocked', 0)
+                    percent_blocked = queries.get('percent_blocked', 0)
+                    unique_domains = queries.get('unique_domains', 0)
+
+                    # Fallback to older API format if v6 fields are empty
+                    if queries_today == 0:
+                        queries_today = data.get('dns_queries_today', data.get('queries_today', 0))
+                        blocked_today = data.get('ads_blocked_today', data.get('blocked_today', 0))
+                        percent_blocked = data.get('ads_percentage_today', data.get('percent_blocked', 0))
+                        unique_domains = data.get('domains_being_blocked', data.get('domains_blocked', 0))
 
                     return {
-                        "queries_today": stats.get('dns_queries_today', stats.get('queries_today', 0)),
-                        "blocked_today": stats.get('ads_blocked_today', stats.get('blocked_today', 0)),
-                        "percent_blocked": round(stats.get('ads_percentage_today', stats.get('percent_blocked', 0)), 1),
-                        "domains_blocked": stats.get('domains_being_blocked', stats.get('domains_blocked', 0)),
+                        "queries_today": queries_today,
+                        "blocked_today": blocked_today,
+                        "percent_blocked": round(percent_blocked, 1),
+                        "domains_blocked": unique_domains,
                         "available": True
                     }
                 elif response.status == 401:
