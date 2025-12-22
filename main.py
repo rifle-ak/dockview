@@ -381,6 +381,8 @@ async def get_all_widgets():
         'tdarr': get_tdarr_stats(),
         'prowlarr': get_prowlarr_stats(),
         'scrutiny': get_scrutiny_stats(),
+        'speedtest': get_speedtest_stats(),
+        'uptime_kuma': get_uptime_kuma_stats(),
     }
 
     results = {}
@@ -552,6 +554,48 @@ async def get_scrutiny_stats():
     return {
         "total_devices": data.get('data', {}).get('summary', {}).get('total_device_count', 0),
         "critical": data.get('data', {}).get('summary', {}).get('critical_device_count', 0),
+        "available": True
+    }
+
+@app.get("/widgets/speedtest")
+async def get_speedtest_stats():
+    """Get network speed from Speedtest-tracker"""
+    # Get latest speedtest result
+    data = await fetch_service_data('speedtest', '/api/speedtest/latest')
+
+    if not data:
+        return None
+
+    # Speedtest-tracker API structure
+    result = data.get('data', {})
+
+    return {
+        "download": round(result.get('download', 0), 2),  # Mbps
+        "upload": round(result.get('upload', 0), 2),  # Mbps
+        "ping": round(result.get('ping', 0), 2),  # ms
+        "server": result.get('server', {}).get('name', 'Unknown'),
+        "timestamp": result.get('created_at', ''),
+        "available": True
+    }
+
+@app.get("/widgets/uptime_kuma")
+async def get_uptime_kuma_stats():
+    """Get service uptime stats from Uptime Kuma"""
+    # Get monitors status
+    data = await fetch_service_data('uptime_kuma', '/api/status-page/heartbeat')
+
+    if not data:
+        # Try alternative endpoint
+        data = await fetch_service_data('uptime_kuma', '/metrics')
+
+    if not data:
+        return None
+
+    # Uptime Kuma API structure varies, return basic info
+    return {
+        "monitors": data.get('monitorList', []),
+        "up_count": len([m for m in data.get('monitorList', []) if m.get('active')]) if 'monitorList' in data else 0,
+        "total_count": len(data.get('monitorList', [])) if 'monitorList' in data else 0,
         "available": True
     }
 
