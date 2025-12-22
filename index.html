@@ -857,12 +857,19 @@
         // Fetch containers
         async function fetchContainers() {
             try {
+                const startTime = performance.now();
+                console.log('🔄 Fetching containers...');
+
                 const response = await fetch('/containers');
                 allContainers = await response.json();
+
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+                console.log(`✓ Fetched ${allContainers.length} containers in ${elapsed}s`);
+
                 updateStats();
                 filterAndRenderContainers();
             } catch (error) {
-                console.error('Error fetching containers:', error);
+                console.error('❌ Error fetching containers:', error);
                 showToast('Failed to fetch containers', 'error');
             }
         }
@@ -1069,15 +1076,22 @@
         // Widget functions (with error handling and fast timeout)
         async function fetchWidgets() {
             try {
-                // Set a shorter timeout for widget fetching to not block the UI
+                const startTime = performance.now();
+                console.log('📊 Fetching widgets...');
+
+                // Set a timeout for widget fetching to not block the UI
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second frontend timeout
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second frontend timeout (match backend)
 
                 const response = await fetch('/widgets/all', { signal: controller.signal });
                 clearTimeout(timeoutId);
                 const data = await response.json();
 
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+                console.log(`✓ Fetched widgets in ${elapsed}s`);
+
                 if (!data.enabled) {
+                    console.log('ℹ Widgets are disabled in config');
                     return;
                 }
 
@@ -1085,6 +1099,7 @@
                 widgetsSection.style.display = 'block';
 
                 const widgets = data.widgets;
+                let visibleWidgets = 0;
 
                 // Update Tautulli widget
                 if (widgets.tautulli && widgets.tautulli.available) {
@@ -1093,6 +1108,7 @@
                     const bandwidth = widgets.tautulli.total_bandwidth ?
                         (widgets.tautulli.total_bandwidth / 1000).toFixed(1) + ' Mbps' : '0 Mbps';
                     document.getElementById('tautulli-bandwidth').textContent = bandwidth;
+                    visibleWidgets++;
                 }
 
                 // Update Pi-hole widget
@@ -1172,6 +1188,8 @@
                     document.getElementById('widget-speedtest').style.display = 'block';
                     document.getElementById('speedtest-download').textContent = widgets.speedtest.download.toFixed(1);
                     document.getElementById('speedtest-upload').textContent = widgets.speedtest.upload.toFixed(1);
+                    visibleWidgets++;
+                    console.log('📡 Speedtest widget loaded:', widgets.speedtest);
                 }
 
                 // Update Uptime Kuma widget
@@ -1179,12 +1197,15 @@
                     document.getElementById('widget-uptime').style.display = 'block';
                     document.getElementById('uptime-online').textContent = widgets.uptime_kuma.up_count || 0;
                     document.getElementById('uptime-total').textContent = widgets.uptime_kuma.total_count || 0;
+                    visibleWidgets++;
                 }
+
+                console.log(`✓ Displayed ${visibleWidgets} widgets`);
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    console.warn('Widget fetch timed out after 5 seconds');
+                    console.warn('⏱ Widget fetch timed out after 8 seconds');
                 } else {
-                    console.error('Error fetching widgets:', error);
+                    console.error('❌ Error fetching widgets:', error);
                 }
                 // Don't block the UI - just log and continue
             }
