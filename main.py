@@ -419,21 +419,53 @@ async def get_all_widgets():
 
 @app.get("/widgets/tautulli")
 async def get_tautulli_stats():
-    """Get Plex stats from Tautulli"""
-    # Get current activity
+    """Get Plex stats from Tautulli with rich library info"""
+    # Fetch multiple endpoints in parallel for comprehensive stats
     activity = await fetch_service_data('tautulli', '/api/v2', {'cmd': 'get_activity'})
-    # Get library stats
+    home_stats = await fetch_service_data('tautulli', '/api/v2', {'cmd': 'get_home_stats', 'time_range': '1'})  # Today
     libraries = await fetch_service_data('tautulli', '/api/v2', {'cmd': 'get_libraries'})
 
     if not activity:
         return None
 
-    data = activity.get('response', {}).get('data', {})
+    # Current streams
+    activity_data = activity.get('response', {}).get('data', {})
+    stream_count = activity_data.get('stream_count', 0)
+    total_bandwidth = activity_data.get('total_bandwidth', 0)
+
+    # Today's stats (plays, duration)
+    plays_today = 0
+    duration_today = 0
+    if home_stats:
+        stats_data = home_stats.get('response', {}).get('data', [])
+        for stat in stats_data:
+            if stat.get('stat_id') == 'top_movies' or stat.get('stat_id') == 'top_tv':
+                plays_today += stat.get('total_plays', 0)
+                duration_today += stat.get('total_duration', 0)
+
+    # Library counts
+    total_movies = 0
+    total_shows = 0
+    total_episodes = 0
+    if libraries:
+        libs_data = libraries.get('response', {}).get('data', [])
+        for lib in libs_data:
+            section_type = lib.get('section_type', '')
+            if section_type == 'movie':
+                total_movies += lib.get('count', 0)
+            elif section_type == 'show':
+                total_shows += lib.get('count', 0)
+                total_episodes += lib.get('child_count', 0)
 
     return {
-        "stream_count": data.get('stream_count', 0),
-        "total_bandwidth": data.get('total_bandwidth', 0),
-        "streams": data.get('sessions', [])[:3],  # Top 3 streams
+        "stream_count": stream_count,
+        "total_bandwidth": total_bandwidth,
+        "streams": activity_data.get('sessions', [])[:3],
+        "plays_today": plays_today,
+        "duration_today": round(duration_today / 3600, 1) if duration_today > 0 else 0,  # Convert to hours
+        "total_movies": total_movies,
+        "total_shows": total_shows,
+        "total_episodes": total_episodes,
         "available": True
     }
 
@@ -565,39 +597,68 @@ async def get_overseerr_stats():
 
 @app.get("/widgets/sonarr")
 async def get_sonarr_stats():
-    """Get Sonarr queue and calendar"""
+    """Get Sonarr queue, calendar, and library stats"""
     queue = await fetch_service_data('sonarr', '/api/v3/queue')
     calendar = await fetch_service_data('sonarr', '/api/v3/calendar', {
         'start': datetime.now(timezone.utc).isoformat(),
         'end': (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
     })
+    series = await fetch_service_data('sonarr', '/api/v3/series')
 
     if queue is None:
         return None
+
+    # Calculate library totals
+    total_shows = len(series) if series else 0
+    total_episodes = 0
+    monitored_shows = 0
+    if series:
+        for show in series:
+            total_episodes += show.get('statistics', {}).get('episodeFileCount', 0)
+            if show.get('monitored', False):
+                monitored_shows += 1
 
     return {
         "queue_count": len(queue.get('records', [])) if queue else 0,
         "upcoming_today": len(calendar) if calendar else 0,
         "queue_items": queue.get('records', [])[:5] if queue else [],
+        "total_shows": total_shows,
+        "total_episodes": total_episodes,
+        "monitored_shows": monitored_shows,
         "available": True
     }
 
 @app.get("/widgets/radarr")
 async def get_radarr_stats():
-    """Get Radarr queue and calendar"""
+    """Get Radarr queue, calendar, and library stats"""
     queue = await fetch_service_data('radarr', '/api/v3/queue')
     calendar = await fetch_service_data('radarr', '/api/v3/calendar', {
         'start': datetime.now(timezone.utc).isoformat(),
         'end': (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
     })
+    movies = await fetch_service_data('radarr', '/api/v3/movie')
 
     if queue is None:
         return None
+
+    # Calculate library totals
+    total_movies = len(movies) if movies else 0
+    downloaded_movies = 0
+    monitored_movies = 0
+    if movies:
+        for movie in movies:
+            if movie.get('hasFile', False):
+                downloaded_movies += 1
+            if movie.get('monitored', False):
+                monitored_movies += 1
 
     return {
         "queue_count": len(queue.get('records', [])) if queue else 0,
         "upcoming_today": len(calendar) if calendar else 0,
         "queue_items": queue.get('records', [])[:5] if queue else [],
+        "total_movies": total_movies,
+        "downloaded_movies": downloaded_movies,
+        "monitored_movies": monitored_movies,
         "available": True
     }
 
@@ -657,6 +718,11 @@ async def get_scrutiny_stats():
     total_devices = 0
     critical = 0
 
+    # Track disk health details
+    devices_list = []
+    avg_temp = 0
+    total_temp_count = 0
+
     # Structure 1: {data: {summary: {"WWN1": {...}, "WWN2": {...}}}} - Dictionary of devices by WWN
     if 'data' in data and isinstance(data['data'], dict) and 'summary' in data['data']:
         summary = data['data']['summary']
@@ -666,9 +732,25 @@ async def get_scrutiny_stats():
             # Count critical devices (device_status > 0 means issues)
             for wwn, device_data in summary.items():
                 device_info = device_data.get('device', {})
+                smart = device_data.get('smart', {})
+
                 # Check for critical status or device_status field
                 if device_data.get('device_status', 0) > 0 or device_info.get('device_status', 0) > 0:
                     critical += 1
+
+                # Extract disk details
+                temp = smart.get('temp', 0)
+                if temp > 0:
+                    avg_temp += temp
+                    total_temp_count += 1
+
+                devices_list.append({
+                    "name": device_info.get('device_name', 'Unknown'),
+                    "model": device_info.get('model_name', 'Unknown'),
+                    "temp": temp,
+                    "power_on_hours": smart.get('power_on_hours', 0),
+                    "status": device_info.get('device_status', 0)
+                })
 
     # Structure 2: {data: {summary: {total_device_count: N}}} - Count fields
     if total_devices == 0 and 'data' in data and isinstance(data['data'], dict):
@@ -693,11 +775,17 @@ async def get_scrutiny_stats():
         total_devices = len(devices)
         critical = sum(1 for d in devices if d.get('device_status', 0) > 0)
 
-    logger.info(f"💽 Scrutiny: Found {total_devices} total devices, {critical} critical")
+    # Calculate average temperature
+    if total_temp_count > 0:
+        avg_temp = round(avg_temp / total_temp_count, 1)
+
+    logger.info(f"💽 Scrutiny: Found {total_devices} total devices, {critical} critical, avg temp: {avg_temp}°C")
 
     return {
         "total_devices": total_devices,
         "critical": critical,
+        "avg_temp": avg_temp,
+        "devices": devices_list,
         "available": True
     }
 
