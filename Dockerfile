@@ -2,6 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system utilities for debugging
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy application files
 COPY main.py .
 COPY index.html .
