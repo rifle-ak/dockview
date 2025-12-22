@@ -435,22 +435,32 @@ async def get_pihole_stats():
     service_config = config.get('services', {}).get('pihole', {})
     api_key = service_config.get('api_key', '')
 
-    # Try v5 API with authentication
-    if api_key:
-        # For Pi-hole with password, use auth parameter
-        data = await fetch_service_data('pihole', '/admin/api.php', {'summaryRaw': '', 'auth': api_key})
-    else:
-        # Try without auth
-        data = await fetch_service_data('pihole', '/admin/api.php', {'summaryRaw': ''})
+    # Pi-hole API endpoints to try (in order)
+    endpoints = [
+        # Try unauthenticated first (works if API is open)
+        ('/admin/api.php', {'summary': ''}),
+        # Try with auth parameter if key provided
+        ('/admin/api.php', {'summary': '', 'auth': api_key}) if api_key else None,
+        # Try summaryRaw endpoint
+        ('/admin/api.php', {'summaryRaw': '', 'auth': api_key}) if api_key else None,
+    ]
+
+    data = None
+    for endpoint in endpoints:
+        if endpoint is None:
+            continue
+
+        path, params = endpoint
+        result = await fetch_service_data('pihole', path, params)
+        if result:
+            data = result
+            break
 
     if not data:
-        # Try alternative endpoint
-        data = await fetch_service_data('pihole', '/admin/api.php', {'summary': ''})
-
-    if not data:
+        logger.warning("Pi-hole: All API endpoints failed. Check if Pi-hole is accessible and auth is correct.")
         return None
 
-    # Handle response format
+    # Handle response format (both raw and summary)
     return {
         "queries_today": data.get('dns_queries_today', 0),
         "blocked_today": data.get('ads_blocked_today', 0),
