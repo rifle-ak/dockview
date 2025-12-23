@@ -835,6 +835,38 @@ async def get_speedtest_stats():
         "available": True
     }
 
+@app.post("/speedtest/run")
+async def run_speedtest():
+    """Trigger a new speedtest"""
+    try:
+        # Trigger new speedtest via Speedtest-tracker API
+        service_config = config.get('services', {}).get('speedtest', {})
+
+        if not service_config.get('enabled', False):
+            raise HTTPException(status_code=400, detail="Speedtest service not enabled")
+
+        url = service_config.get('url')
+        if not url:
+            raise HTTPException(status_code=400, detail="Speedtest URL not configured")
+
+        full_url = f"{url}/api/speedtest"
+
+        timeout = aiohttp.ClientTimeout(total=60)  # Speedtest can take up to 60 seconds
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(full_url) as response:
+                if response.status in [200, 201]:
+                    logger.info("✓ Speedtest triggered successfully")
+                    return {"status": "success", "message": "Speedtest started"}
+                else:
+                    logger.error(f"Speedtest trigger failed with status {response.status}")
+                    raise HTTPException(status_code=response.status, detail="Failed to trigger speedtest")
+    except asyncio.TimeoutError:
+        logger.error("Speedtest trigger timed out")
+        raise HTTPException(status_code=504, detail="Speedtest request timed out")
+    except Exception as e:
+        logger.error(f"Error triggering speedtest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/widgets/uptime_kuma")
 async def get_uptime_kuma_stats():
     """Get service uptime stats from Uptime Kuma status page"""
