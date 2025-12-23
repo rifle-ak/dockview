@@ -629,57 +629,67 @@
 
     <!-- Main Content -->
     <main class="container mx-auto px-6 py-8">
-        <!-- Hero Section - Speedtest Display -->
-        <div id="hero-speedtest" class="mb-12" style="display: none; animation: slideInDown 0.5s ease-out;">
-            <div class="relative overflow-hidden rounded-3xl p-8 glass border-2 border-indigo-500/30 shadow-2xl">
-                <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10"></div>
-                <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/20 to-cyan-500/20 rounded-full blur-3xl -z-10"></div>
+        <!-- Hero Section - Speedtest Display with Gauges -->
+        <div id="hero-speedtest" class="mb-12" style="display: none; animation: scaleIn 0.8s ease-out;">
+            <div class="relative overflow-hidden rounded-3xl p-12 glass border-2 border-indigo-500/30 shadow-2xl">
+                <!-- Animated background blobs -->
+                <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-3xl -z-10 animate-pulse" style="animation-duration: 4s;"></div>
+                <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-500/20 to-cyan-500/20 rounded-full blur-3xl -z-10 animate-pulse" style="animation-duration: 6s;"></div>
 
                 <div class="text-center mb-8">
-                    <h2 class="text-3xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        <i class="fas fa-tachometer-alt"></i> Network Performance
+                    <h2 class="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        <i class="fas fa-tachometer-alt mr-3"></i>Network Performance
                     </h2>
-                    <p class="text-gray-400 text-sm">Real-time internet speed metrics</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <!-- Download Speed -->
-                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
-                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-download"></i> Download
-                        </div>
-                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent" id="hero-download">
-                            --
-                        </div>
-                        <div class="text-xl text-gray-500">Mbps</div>
-                    </div>
-
-                    <!-- Upload Speed -->
-                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20">
-                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-upload"></i> Upload
-                        </div>
-                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="hero-upload">
-                            --
-                        </div>
-                        <div class="text-xl text-gray-500">Mbps</div>
-                    </div>
-
-                    <!-- Ping -->
-                    <div class="text-center p-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                        <div class="text-sm text-gray-400 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-signal"></i> Latency
-                        </div>
-                        <div class="text-5xl font-bold mb-1 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent" id="hero-ping">
-                            --
-                        </div>
-                        <div class="text-xl text-gray-500">ms</div>
+                    <p class="text-gray-400">Real-time internet speed metrics</p>
+                    <div class="mt-2 text-xs text-gray-500">
+                        <span id="hero-speedtest-server">Server: --</span>
+                        <span class="mx-3">•</span>
+                        <span id="hero-speedtest-time">Last tested: --</span>
                     </div>
                 </div>
 
-                <div class="text-center">
-                    <div class="text-xs text-gray-500" id="hero-speedtest-server">Server: --</div>
-                    <div class="text-xs text-gray-600 mt-1" id="hero-speedtest-time">Last tested: --</div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    <!-- Download Gauge -->
+                    <div class="text-center">
+                        <div class="relative w-48 h-48 mx-auto mb-4">
+                            <canvas id="gauge-download"></canvas>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <div class="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent" id="hero-download">--</div>
+                                <div class="text-xs text-gray-400 uppercase">Mbps</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-400 uppercase tracking-wider font-semibold">
+                            <i class="fas fa-download text-green-400"></i> Download
+                        </div>
+                    </div>
+
+                    <!-- Upload Gauge -->
+                    <div class="text-center">
+                        <div class="relative w-48 h-48 mx-auto mb-4">
+                            <canvas id="gauge-upload"></canvas>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <div class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent" id="hero-upload">--</div>
+                                <div class="text-xs text-gray-400 uppercase">Mbps</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-400 uppercase tracking-wider font-semibold">
+                            <i class="fas fa-upload text-blue-400"></i> Upload
+                        </div>
+                    </div>
+
+                    <!-- Ping Gauge -->
+                    <div class="text-center">
+                        <div class="relative w-48 h-48 mx-auto mb-4">
+                            <canvas id="gauge-ping"></canvas>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <div class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent" id="hero-ping">--</div>
+                                <div class="text-xs text-gray-400 uppercase">ms</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-400 uppercase tracking-wider font-semibold">
+                            <i class="fas fa-signal text-purple-400"></i> Latency
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1611,6 +1621,9 @@ Type: ${container.appType || 'unknown'}
 
         // Chart creation functions
         let piholeChart = null;
+        let gaugeDownload = null;
+        let gaugeUpload = null;
+        let gaugePing = null;
 
         function createPiholeChart(piholeData) {
             const ctx = document.getElementById('pihole-chart');
@@ -1731,6 +1744,56 @@ Type: ${container.appType || 'unknown'}
                     }
                 }
             });
+        }
+
+        function createGaugeChart(canvasId, value, maxValue, label, colors) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return null;
+
+            // Destroy existing chart
+            const chartVar = canvasId.replace('gauge-', '');
+            if (chartVar === 'download' && gaugeDownload) gaugeDownload.destroy();
+            if (chartVar === 'upload' && gaugeUpload) gaugeUpload.destroy();
+            if (chartVar === 'ping' && gaugePing) gaugePing.destroy();
+
+            const percentage = Math.min((value / maxValue) * 100, 100);
+
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [value, maxValue - value],
+                        backgroundColor: [
+                            colors.fill,
+                            'rgba(31, 41, 55, 0.3)'
+                        ],
+                        borderColor: [
+                            colors.border,
+                            'transparent'
+                        ],
+                        borderWidth: 2,
+                        circumference: 270,
+                        rotation: 225
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 2000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+
+            return chart;
         }
 
         // Number animation utilities
@@ -1927,14 +1990,33 @@ Type: ${container.appType || 'unknown'}
                     const heroSection = document.getElementById('hero-speedtest');
                     heroSection.style.display = 'block';
 
-                    // Update hero numbers with animation
-                    const downloadEl = document.getElementById('hero-download');
-                    const uploadEl = document.getElementById('hero-upload');
-                    const pingEl = document.getElementById('hero-ping');
+                    // Create gauge charts with beautiful gradients
+                    const downloadSpeed = widgets.speedtest.download || 0;
+                    const uploadSpeed = widgets.speedtest.upload || 0;
+                    const pingMs = widgets.speedtest.ping || 0;
 
-                    downloadEl.textContent = widgets.speedtest.download.toFixed(0);
-                    uploadEl.textContent = widgets.speedtest.upload.toFixed(0);
-                    pingEl.textContent = widgets.speedtest.ping.toFixed(1);
+                    // Download gauge (green) - max 1000 Mbps
+                    gaugeDownload = createGaugeChart('gauge-download', downloadSpeed, 1000, 'Download', {
+                        fill: 'rgba(16, 185, 129, 0.8)',
+                        border: 'rgb(16, 185, 129)'
+                    });
+
+                    // Upload gauge (blue) - max 100 Mbps
+                    gaugeUpload = createGaugeChart('gauge-upload', uploadSpeed, 100, 'Upload', {
+                        fill: 'rgba(59, 130, 246, 0.8)',
+                        border: 'rgb(59, 130, 246)'
+                    });
+
+                    // Ping gauge (purple) - max 100ms (lower is better, inverted display)
+                    gaugePing = createGaugeChart('gauge-ping', Math.min(pingMs, 100), 100, 'Latency', {
+                        fill: 'rgba(168, 85, 247, 0.8)',
+                        border: 'rgb(168, 85, 247)'
+                    });
+
+                    // Update numbers with animations
+                    animateNumber(document.getElementById('hero-download'), 0, downloadSpeed, 2000);
+                    animateNumber(document.getElementById('hero-upload'), 0, uploadSpeed, 2000);
+                    animateNumber(document.getElementById('hero-ping'), 0, pingMs, 2000);
 
                     document.getElementById('hero-speedtest-server').textContent = `Server: ${widgets.speedtest.server || 'Unknown'}`;
 
