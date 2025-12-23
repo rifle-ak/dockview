@@ -89,8 +89,7 @@
             backdrop-filter: blur(20px);
             overflow: hidden;
             max-width: 320px;
-            width: 100%;
-            margin: 0 auto;
+            justify-self: center;
         }
 
         /* Animated gradient border for high CPU/RAM usage */
@@ -1396,7 +1395,8 @@
         let allContainers = [];
         let currentFilter = 'all';
         let searchTerm = '';
-        let groupByCategory = true;
+        // Load saved view mode from localStorage, default to grouped
+        let groupByCategory = localStorage.getItem('dockview-viewmode') === 'grid' ? false : true;
 
         // DOM elements
         const containerGrid = document.getElementById('container-grid');
@@ -1840,16 +1840,32 @@
                 groupByCategory = false;
                 gridBtn.classList.add('active');
                 groupBtn.classList.remove('active');
+                localStorage.setItem('dockview-viewmode', 'grid');
                 showToast('📱 Grid view - All containers', 'info');
             } else {
                 groupByCategory = true;
                 gridBtn.classList.remove('active');
                 groupBtn.classList.add('active');
+                localStorage.setItem('dockview-viewmode', 'grouped');
                 showToast('📂 Grouped by category', 'info');
             }
 
             filterAndRenderContainers();
             console.log(`View mode changed to: ${mode}, groupByCategory=${groupByCategory}`);
+        }
+
+        // Initialize view toggle buttons based on saved preference
+        function initializeViewMode() {
+            const gridBtn = document.getElementById('grid-view-btn');
+            const groupBtn = document.getElementById('group-view-btn');
+
+            if (groupByCategory) {
+                groupBtn.classList.add('active');
+                gridBtn.classList.remove('active');
+            } else {
+                gridBtn.classList.add('active');
+                groupBtn.classList.remove('active');
+            }
         }
 
         // Container actions
@@ -2639,6 +2655,9 @@ Type: ${container.appType || 'unknown'}
 
         // Start auto-refresh
         startAutoRefresh();
+
+        // Initialize view mode toggle buttons based on saved preference
+        initializeViewMode();
 
         // Initial fetch - containers first for instant display, widgets after
         fetchContainers();
