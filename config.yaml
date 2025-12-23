@@ -85,7 +85,9 @@ services:
   uptime_kuma:
     enabled: true
     url: "http://uptime-kuma:3001"
-    api_key: ""  # Get from Uptime Kuma Settings > API Keys
+    slug: "default"  # Status page slug (default is "default")
+    # Note: Requires a published status page in Uptime Kuma
+    # Go to Status Pages > Create/Edit > Publish to create one
 
 # Widget Display Settings
 widgets:

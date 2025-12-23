@@ -744,12 +744,20 @@
                     </div>
                     <div class="widget-content">
                         <div class="widget-stat">
-                            <span class="widget-value" id="uptime-online">0</span>
-                            <span class="widget-label">Services Online</span>
+                            <span class="widget-value" id="uptime-up">0</span>
+                            <span class="widget-label">Online</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="uptime-down">0</span>
+                            <span class="widget-label">Down</span>
                         </div>
                         <div class="widget-stat">
                             <span class="widget-value" id="uptime-total">0</span>
-                            <span class="widget-label">Total Monitored</span>
+                            <span class="widget-label">Total</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="uptime-percent">0%</span>
+                            <span class="widget-label">Uptime</span>
                         </div>
                     </div>
                 </div>
@@ -1301,9 +1309,21 @@
 
                 // Update Uptime Kuma widget
                 if (widgets.uptime_kuma && widgets.uptime_kuma.available) {
+                    console.log('💚 Uptime Kuma data:', widgets.uptime_kuma);
                     document.getElementById('widget-uptime').style.display = 'block';
-                    document.getElementById('uptime-online').textContent = widgets.uptime_kuma.up_count || 0;
-                    document.getElementById('uptime-total').textContent = widgets.uptime_kuma.total_count || 0;
+                    document.getElementById('uptime-up').textContent = widgets.uptime_kuma.up || 0;
+                    document.getElementById('uptime-down').textContent = widgets.uptime_kuma.down || 0;
+                    document.getElementById('uptime-total').textContent = widgets.uptime_kuma.total_monitors || 0;
+                    document.getElementById('uptime-percent').textContent = (widgets.uptime_kuma.uptime || 0) + '%';
+
+                    // Color code the down count if > 0
+                    const downElement = document.getElementById('uptime-down');
+                    if (widgets.uptime_kuma.down > 0) {
+                        downElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                        downElement.style.webkitBackgroundClip = 'text';
+                        downElement.style.webkitTextFillColor = 'transparent';
+                    }
+
                     visibleWidgets++;
                 }
 

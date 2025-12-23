@@ -812,22 +812,46 @@ async def get_speedtest_stats():
 
 @app.get("/widgets/uptime_kuma")
 async def get_uptime_kuma_stats():
-    """Get service uptime stats from Uptime Kuma"""
-    # Get monitors status
-    data = await fetch_service_data('uptime_kuma', '/api/status-page/heartbeat')
+    """Get service uptime stats from Uptime Kuma status page"""
+    service_config = config.get('services', {}).get('uptime_kuma', {})
+    slug = service_config.get('slug', 'default')  # Default slug is 'default'
+
+    # Uptime Kuma requires a published status page
+    # Endpoint: /api/status-page/{slug}
+    data = await fetch_service_data('uptime_kuma', f'/api/status-page/{slug}')
 
     if not data:
-        # Try alternative endpoint
-        data = await fetch_service_data('uptime_kuma', '/metrics')
-
-    if not data:
+        logger.warning(f"Uptime Kuma: No status page found for slug '{slug}'. Please create and publish a status page in Uptime Kuma.")
         return None
 
-    # Uptime Kuma API structure varies, return basic info
+    # Parse status page response
+    # Structure: {publicGroupList: [...], config: {...}}
+    public_groups = data.get('publicGroupList', [])
+
+    total_monitors = 0
+    up_monitors = 0
+    down_monitors = 0
+
+    # Count monitors across all groups
+    for group in public_groups:
+        monitor_list = group.get('monitorList', [])
+        for monitor in monitor_list:
+            total_monitors += 1
+            # Status: 1 = up, 0 = down, 2 = pending
+            status = monitor.get('status', 0)
+            if status == 1:
+                up_monitors += 1
+            elif status == 0:
+                down_monitors += 1
+
+    # Calculate uptime percentage
+    uptime = round((up_monitors / total_monitors * 100), 1) if total_monitors > 0 else 0
+
     return {
-        "monitors": data.get('monitorList', []),
-        "up_count": len([m for m in data.get('monitorList', []) if m.get('active')]) if 'monitorList' in data else 0,
-        "total_count": len(data.get('monitorList', [])) if 'monitorList' in data else 0,
+        "total_monitors": total_monitors,
+        "up": up_monitors,
+        "down": down_monitors,
+        "uptime": uptime,
         "available": True
     }
 
