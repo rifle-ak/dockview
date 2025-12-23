@@ -72,6 +72,36 @@
         h2 { font-size: 1.5rem; font-weight: 700; }
         h3 { font-size: 1.125rem; font-weight: 600; }
 
+        /* Ripple Effect */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .ripple:active::after {
+            width: 300px;
+            height: 300px;
+            transition: width 0s, height 0s;
+        }
+
+        /* Smooth Scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+
         /* Glassmorphism effect */
         .glass {
             background: rgba(26, 31, 58, 0.6);
@@ -1421,6 +1451,53 @@
             });
         });
 
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger if user is typing in an input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                // Allow Esc to clear search
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    searchTerm = '';
+                    filterAndRenderContainers();
+                    searchInput.blur();
+                }
+                return;
+            }
+
+            // / or Ctrl+K to focus search
+            if (e.key === '/' || (e.ctrlKey && e.key === 'k')) {
+                e.preventDefault();
+                searchInput.focus();
+                showToast('🔍 Search focused', 'info');
+            }
+
+            // G for grid view
+            if (e.key === 'g' || e.key === 'G') {
+                e.preventDefault();
+                setViewMode('grid');
+            }
+
+            // C for category/grouped view
+            if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                setViewMode('grouped');
+            }
+
+            // R for refresh
+            if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                fetchContainers();
+                showToast('🔄 Refreshing containers...', 'info');
+            }
+
+            // ? for help
+            if (e.key === '?') {
+                e.preventDefault();
+                showKeyboardShortcutsHelp();
+            }
+        });
+
         // Fetch containers
         async function fetchContainers() {
             try {
@@ -1798,14 +1875,14 @@
                         <!-- Actions -->
                         <div class="flex gap-2 mt-4 pt-4 border-t border-gray-700/30">
                             ${isRunning ? `
-                                <button onclick="restartContainer('${container.id}')" class="btn btn-warning flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform">
+                                <button onclick="event.stopPropagation(); restartContainer('${container.id}')" class="btn btn-warning flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
                                     <i class="fas fa-redo mr-1.5"></i>Restart
                                 </button>
-                                <button onclick="stopContainer('${container.id}')" class="btn btn-danger flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform">
+                                <button onclick="event.stopPropagation(); stopContainer('${container.id}')" class="btn btn-danger flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
                                     <i class="fas fa-stop mr-1.5"></i>Stop
                                 </button>
                             ` : `
-                                <button onclick="startContainer('${container.id}')" class="btn btn-success flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform">
+                                <button onclick="event.stopPropagation(); startContainer('${container.id}')" class="btn btn-success flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
                                     <i class="fas fa-play mr-1.5"></i>Start
                                 </button>
                             `}
@@ -2037,6 +2114,25 @@ Type: ${container.appType || 'unknown'}
                 toast.style.animation = 'slideIn 0.3s ease-out reverse';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+
+        // Show keyboard shortcuts help
+        function showKeyboardShortcutsHelp() {
+            const shortcuts = [
+                { key: '/', desc: 'Focus search' },
+                { key: 'Ctrl+K', desc: 'Focus search' },
+                { key: 'Esc', desc: 'Clear search' },
+                { key: 'G', desc: 'Grid view' },
+                { key: 'C', desc: 'Category/Grouped view' },
+                { key: 'R', desc: 'Refresh containers' },
+                { key: '?', desc: 'Show this help' }
+            ];
+
+            const helpText = shortcuts.map(s => `<strong>${s.key}</strong>: ${s.desc}`).join('<br>');
+            showToast(`<div style="text-align: left; line-height: 1.8;">
+                <div style="font-weight: 700; margin-bottom: 8px; font-size: 1.1em;">⌨️ Keyboard Shortcuts</div>
+                ${helpText}
+            </div>`, 'info');
         }
 
         // Chart creation functions
