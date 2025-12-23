@@ -38,16 +38,25 @@
 
         /* Card animations */
         .container-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             background: linear-gradient(135deg, var(--bg-card) 0%, #1d2342 100%);
             border: 1px solid rgba(99, 102, 241, 0.1);
             position: relative;
+            animation: fadeInUp 0.6s ease-out backwards;
         }
 
         .container-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2), 0 0 40px rgba(139, 92, 246, 0.1);
-            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-12px) scale(1.02);
+            box-shadow:
+                0 25px 50px rgba(99, 102, 241, 0.3),
+                0 0 60px rgba(139, 92, 246, 0.2),
+                0 0 100px rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .container-card:active {
+            transform: translateY(-8px) scale(1.01);
+            transition: all 0.1s;
         }
 
         .container-card.clickable {
@@ -65,6 +74,53 @@
             font-size: 0.75rem;
             font-weight: 600;
             animation: fadeIn 0.2s ease-out;
+            z-index: 5;
+        }
+
+        /* Hover Quick Actions */
+        .hover-actions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 0.75rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .container-card:hover .hover-actions {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .hover-action-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.9));
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .hover-action-btn:hover {
+            transform: scale(1.15);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+        }
+
+        .hover-action-btn:active {
+            transform: scale(1.05);
         }
 
         @keyframes fadeIn {
@@ -134,6 +190,42 @@
             box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
         }
 
+        /* Health badges */
+        .health-badge {
+            padding: 0.375rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: all 0.3s ease;
+            animation: pulse 3s infinite;
+        }
+
+        .health-badge:hover {
+            transform: scale(1.15);
+            animation: glow 1s infinite;
+        }
+
+        .health-low {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            color: #fff;
+        }
+
+        .health-medium {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            color: #fff;
+        }
+
+        .health-high {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            color: #fff;
+        }
+
         /* Progress bars */
         .progress-container {
             height: 8px;
@@ -158,8 +250,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shimmer 2s infinite;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 2.5s infinite;
         }
 
         @keyframes shimmer {
@@ -167,9 +259,19 @@
             100% { transform: translateX(100%); }
         }
 
-        .progress-low { background: linear-gradient(90deg, var(--success), #059669); }
-        .progress-medium { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .progress-high { background: linear-gradient(90deg, var(--danger), #dc2626); }
+        .progress-low {
+            background: linear-gradient(90deg, var(--success), #059669);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+        .progress-medium {
+            background: linear-gradient(90deg, var(--warning), #d97706);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+        .progress-high {
+            background: linear-gradient(90deg, var(--danger), #dc2626);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+            animation: pulse 2s infinite;
+        }
 
         /* Buttons */
         .btn {
@@ -222,6 +324,12 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .container-card:hover .app-icon {
+            transform: scale(1.1) rotate(5deg);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
         }
 
         /* Search bar */
@@ -347,6 +455,46 @@
             50% {
                 opacity: 0.8;
                 box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(99, 102, 241, 0.6);
             }
         }
 
@@ -531,6 +679,73 @@
                 <div class="text-center">
                     <div class="text-xs text-gray-500" id="hero-speedtest-server">Server: --</div>
                     <div class="text-xs text-gray-600 mt-1" id="hero-speedtest-time">Last tested: --</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Summary Bar -->
+        <div id="stats-summary" class="mb-8" style="animation: slideInDown 0.6s ease-out;">
+            <div class="glass rounded-2xl p-6 border border-indigo-500/20">
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <!-- Total Containers -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-1" id="stat-total-containers">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-cubes"></i> Total
+                        </div>
+                    </div>
+
+                    <!-- Running -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-1" id="stat-running">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-play-circle"></i> Running
+                        </div>
+                    </div>
+
+                    <!-- Stopped -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-red-400 to-pink-400 bg-clip-text text-transparent mb-1" id="stat-stopped">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-stop-circle"></i> Stopped
+                        </div>
+                    </div>
+
+                    <!-- CPU Usage -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent mb-1" id="stat-cpu">
+                            --%
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-microchip"></i> CPU
+                        </div>
+                    </div>
+
+                    <!-- RAM Usage -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1" id="stat-ram">
+                            -- GB
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-memory"></i> RAM
+                        </div>
+                    </div>
+
+                    <!-- Widgets Active -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-1" id="stat-widgets">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-th"></i> Widgets
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -769,15 +984,20 @@
             </div>
 
             <!-- Tabs -->
-            <div class="flex justify-center border-b border-gray-700/50">
-                <button class="tab-button active" data-tab="all">
-                    <i class="fas fa-th-large"></i> All Containers
-                </button>
-                <button class="tab-button" data-tab="running">
-                    <i class="fas fa-play-circle"></i> Running
-                </button>
-                <button class="tab-button" data-tab="exited">
-                    <i class="fas fa-stop-circle"></i> Stopped
+            <div class="flex justify-between items-center border-b border-gray-700/50">
+                <div class="flex justify-center flex-1">
+                    <button class="tab-button active" data-tab="all">
+                        <i class="fas fa-th-large"></i> All Containers
+                    </button>
+                    <button class="tab-button" data-tab="running">
+                        <i class="fas fa-play-circle"></i> Running
+                    </button>
+                    <button class="tab-button" data-tab="exited">
+                        <i class="fas fa-stop-circle"></i> Stopped
+                    </button>
+                </div>
+                <button id="group-toggle" class="tab-button active mr-4" onclick="toggleGrouping()" title="Group by category">
+                    <i class="fas fa-layer-group"></i> Grouped
                 </button>
             </div>
         </div>
@@ -870,9 +1090,66 @@
             docker: { icon: 'fab fa-docker', color: '#2496ED' }
         };
 
+        // Category definitions for grouping containers
+        const CATEGORIES = {
+            media: {
+                name: 'Media',
+                icon: 'fas fa-film',
+                color: '#a55eea',
+                apps: ['plex', 'jellyfin', 'emby', 'sonarr', 'radarr', 'lidarr', 'overseerr', 'tdarr', 'tautulli']
+            },
+            downloads: {
+                name: 'Downloads',
+                icon: 'fas fa-download',
+                color: '#3498db',
+                apps: ['transmission', 'qbittorrent', 'sabnzbd', 'nzbget', 'jackett', 'prowlarr']
+            },
+            monitoring: {
+                name: 'Monitoring',
+                icon: 'fas fa-chart-line',
+                color: '#f46800',
+                apps: ['grafana', 'prometheus', 'netdata', 'scrutiny', 'uptime-kuma', 'uptime', 'speedtest', 'speedtest-tracker']
+            },
+            network: {
+                name: 'Network & Security',
+                icon: 'fas fa-shield-alt',
+                color: '#96060c',
+                apps: ['pihole', 'adguard', 'traefik', 'nginx', 'wireguard', 'openvpn', 'vaultwarden', 'authelia']
+            },
+            cloud: {
+                name: 'Cloud & Storage',
+                icon: 'fas fa-cloud',
+                color: '#0082c9',
+                apps: ['nextcloud', 'photoprism', 'immich']
+            },
+            databases: {
+                name: 'Databases',
+                icon: 'fas fa-database',
+                color: '#336791',
+                apps: ['postgresql', 'postgres', 'mysql', 'mariadb', 'redis', 'mongodb']
+            },
+            management: {
+                name: 'Management',
+                icon: 'fas fa-dharmachakra',
+                color: '#13bef9',
+                apps: ['portainer', 'homepage', 'heimdall', 'organizr']
+            }
+        };
+
+        // Helper function to get category for an app
+        function getCategoryForApp(appType) {
+            for (const [categoryKey, category] of Object.entries(CATEGORIES)) {
+                if (category.apps.includes(appType)) {
+                    return categoryKey;
+                }
+            }
+            return 'other';
+        }
+
         let allContainers = [];
         let currentFilter = 'all';
         let searchTerm = '';
+        let groupByCategory = true;
 
         // DOM elements
         const containerGrid = document.getElementById('container-grid');
@@ -919,19 +1196,37 @@
 
         // Update stats summary
         function updateStats() {
+            const total = allContainers.length;
             const running = allContainers.filter(c => c.status === 'running').length;
             const stopped = allContainers.filter(c => c.status !== 'running').length;
 
-            statsummary.innerHTML = `
-                <div class="stat-card">
-                    <div class="text-xs text-gray-400 mb-1">Running</div>
-                    <div class="stat-value">${running}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs text-gray-400 mb-1">Stopped</div>
-                    <div class="stat-value">${stopped}</div>
-                </div>
-            `;
+            // Calculate aggregate CPU and RAM for running containers
+            let totalCpu = 0;
+            let totalRam = 0;
+            const runningContainers = allContainers.filter(c => c.status === 'running');
+
+            runningContainers.forEach(container => {
+                totalCpu += container.cpu_percent || 0;
+                // Convert memory from string like "150.2 MB" to GB
+                if (container.memory_usage) {
+                    const memStr = container.memory_usage;
+                    const memMatch = memStr.match(/([\d.]+)\s*(MB|GB)/);
+                    if (memMatch) {
+                        const value = parseFloat(memMatch[1]);
+                        const unit = memMatch[2];
+                        totalRam += unit === 'GB' ? value : value / 1024;
+                    }
+                }
+            });
+
+            // Update the stats summary bar
+            document.getElementById('stat-total-containers').textContent = total;
+            document.getElementById('stat-running').textContent = running;
+            document.getElementById('stat-stopped').textContent = stopped;
+            document.getElementById('stat-cpu').textContent = totalCpu.toFixed(1) + '%';
+            document.getElementById('stat-ram').textContent = totalRam.toFixed(1) + ' GB';
+
+            console.log(`📊 Stats: ${total} total, ${running} running, ${stopped} stopped, CPU: ${totalCpu.toFixed(1)}%, RAM: ${totalRam.toFixed(1)} GB`);
         }
 
         // Filter and render containers
@@ -965,19 +1260,85 @@
                 return;
             }
 
-            containerGrid.style.display = 'grid';
+            containerGrid.style.display = 'block';
             emptyState.style.display = 'none';
 
-            containerGrid.innerHTML = containers.map(container => {
+            if (!groupByCategory) {
+                // Original ungrouped rendering
+                containerGrid.innerHTML = renderContainerCards(containers, 0);
+                return;
+            }
+
+            // Group containers by category
+            const grouped = {};
+            containers.forEach(container => {
+                const category = getCategoryForApp(container.appType);
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push(container);
+            });
+
+            // Render grouped containers
+            let html = '';
+            let cardIndex = 0;
+
+            // Render defined categories first
+            for (const [categoryKey, categoryDef] of Object.entries(CATEGORIES)) {
+                if (grouped[categoryKey] && grouped[categoryKey].length > 0) {
+                    html += `
+                        <div class="col-span-full mt-8 mb-4" style="animation: fadeInUp 0.6s ease-out backwards; animation-delay: ${cardIndex * 0.02}s;">
+                            <div class="flex items-center gap-3 pb-3 border-b border-gray-700/50">
+                                <div class="text-2xl" style="color: ${categoryDef.color}">
+                                    <i class="${categoryDef.icon}"></i>
+                                </div>
+                                <h2 class="text-xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
+                                    ${categoryDef.name}
+                                </h2>
+                                <span class="text-sm text-gray-400 ml-2">(${grouped[categoryKey].length})</span>
+                            </div>
+                        </div>
+                    `;
+                    html += renderContainerCards(grouped[categoryKey], cardIndex);
+                    cardIndex += grouped[categoryKey].length;
+                }
+            }
+
+            // Render "Other" category if it exists
+            if (grouped['other'] && grouped['other'].length > 0) {
+                html += `
+                    <div class="col-span-full mt-8 mb-4" style="animation: fadeInUp 0.6s ease-out backwards; animation-delay: ${cardIndex * 0.02}s;">
+                        <div class="flex items-center gap-3 pb-3 border-b border-gray-700/50">
+                            <div class="text-2xl" style="color: #6366f1">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <h2 class="text-xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
+                                Other
+                            </h2>
+                            <span class="text-sm text-gray-400 ml-2">(${grouped['other'].length})</span>
+                        </div>
+                    </div>
+                `;
+                html += renderContainerCards(grouped['other'], cardIndex);
+            }
+
+            containerGrid.innerHTML = html;
+        }
+
+        // Helper function to render container cards
+        function renderContainerCards(containers, startIndex) {
+            return containers.map((container, index) => {
                 const appIcon = APP_ICONS[container.appType] || APP_ICONS.docker;
                 const cpuClass = container.cpu > 75 ? 'progress-high' : container.cpu > 50 ? 'progress-medium' : 'progress-low';
                 const memClass = container.memory > 75 ? 'progress-high' : container.memory > 50 ? 'progress-medium' : 'progress-low';
                 const isRunning = container.status === 'running';
                 const serviceUrl = SERVICE_URLS[container.appType] || SERVICE_URLS[container.name.toLowerCase()];
                 const isClickable = serviceUrl && isRunning;
+                const animationDelay = ((startIndex + index) * 0.05).toFixed(2);
 
                 return `
                     <div class="container-card rounded-2xl p-6 shadow-xl ${isClickable ? 'clickable' : ''}"
+                         style="animation-delay: ${animationDelay}s;"
                          ${isClickable ? `onclick="window.open('${serviceUrl}', '_blank')"` : ''}>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
@@ -990,10 +1351,17 @@
                                     <p class="text-xs text-gray-400 truncate">${container.image}</p>
                                 </div>
                             </div>
-                            <span class="status-badge status-${container.status}">
-                                ${isRunning ? '<span class="pulse-dot"></span>' : ''}
-                                ${container.status}
-                            </span>
+                            <div class="flex flex-col gap-1 items-end">
+                                <span class="status-badge status-${container.status}">
+                                    ${isRunning ? '<span class="pulse-dot"></span>' : ''}
+                                    ${container.status}
+                                </span>
+                                ${isRunning ? `
+                                    <span class="health-badge health-${cpuClass}" title="System Health: CPU ${container.cpu.toFixed(1)}% • RAM ${container.memory.toFixed(1)}%">
+                                        <i class="fas fa-heartbeat"></i>
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
 
                         <!-- Stats -->
@@ -1029,6 +1397,20 @@
                             ` : ''}
                         </div>
 
+                        <!-- Quick Stats Badges -->
+                        ${isRunning ? `
+                            <div class="flex gap-2 mb-4">
+                                <div class="flex-1 rounded-lg px-3 py-2 text-center ${cpuClass === 'progress-high' ? 'bg-red-500/10 border border-red-500/30' : cpuClass === 'progress-medium' ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-green-500/10 border border-green-500/30'}">
+                                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-microchip"></i></div>
+                                    <div class="text-sm font-bold ${cpuClass === 'progress-high' ? 'text-red-400' : cpuClass === 'progress-medium' ? 'text-yellow-400' : 'text-green-400'}">${container.cpu.toFixed(1)}%</div>
+                                </div>
+                                <div class="flex-1 rounded-lg px-3 py-2 text-center ${memClass === 'progress-high' ? 'bg-red-500/10 border border-red-500/30' : memClass === 'progress-medium' ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-green-500/10 border border-green-500/30'}">
+                                    <div class="text-xs text-gray-400 mb-1"><i class="fas fa-memory"></i></div>
+                                    <div class="text-sm font-bold ${memClass === 'progress-high' ? 'text-red-400' : memClass === 'progress-medium' ? 'text-yellow-400' : 'text-green-400'}">${container.memory.toFixed(1)}%</div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <!-- Ports -->
                         ${container.ports && container.ports.length > 0 ? `
                             <div class="mb-4">
@@ -1056,9 +1438,42 @@
                                 </button>
                             `}
                         </div>
+
+                        <!-- Hover Quick Actions -->
+                        <div class="hover-actions">
+                            <button onclick="event.stopPropagation(); viewLogs('${container.id}', '${container.name}')" class="hover-action-btn" title="View Logs">
+                                <i class="fas fa-file-alt"></i>
+                            </button>
+                            ${isRunning ? `
+                                <button onclick="event.stopPropagation(); execTerminal('${container.id}', '${container.name}')" class="hover-action-btn" title="Terminal">
+                                    <i class="fas fa-terminal"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="event.stopPropagation(); showContainerInfo('${container.id}')" class="hover-action-btn" title="Container Info">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // Toggle category grouping
+        function toggleGrouping() {
+            groupByCategory = !groupByCategory;
+            const toggleBtn = document.getElementById('group-toggle');
+            const icon = toggleBtn.querySelector('i');
+
+            if (groupByCategory) {
+                toggleBtn.classList.add('active');
+                toggleBtn.innerHTML = '<i class="fas fa-layer-group"></i> Grouped';
+            } else {
+                toggleBtn.classList.remove('active');
+                toggleBtn.innerHTML = '<i class="fas fa-th"></i> Grid';
+            }
+
+            filterAndRenderContainers();
+            showToast(groupByCategory ? 'Grouped by category' : 'Grid view', 'info');
         }
 
         // Container actions
@@ -1090,6 +1505,42 @@
             } catch (error) {
                 showToast('Failed to restart container', 'error');
             }
+        }
+
+        // Quick action functions
+        function viewLogs(id, name) {
+            showToast(`Logs feature coming soon for ${name}`, 'info');
+            console.log(`📋 View logs for container: ${id} (${name})`);
+            // TODO: Implement modal with live log streaming
+            // Could use: docker logs -f ${id} via WebSocket
+        }
+
+        function execTerminal(id, name) {
+            showToast(`Terminal feature coming soon for ${name}`, 'info');
+            console.log(`💻 Exec terminal for container: ${id} (${name})`);
+            // TODO: Implement web terminal using xterm.js + WebSocket
+            // Execute: docker exec -it ${id} /bin/sh or /bin/bash
+        }
+
+        function showContainerInfo(id) {
+            const container = allContainers.find(c => c.id === id);
+            if (!container) return;
+
+            const info = `
+Container: ${container.name}
+Image: ${container.image}
+Status: ${container.status}
+Uptime: ${container.uptime}
+${container.status === 'running' ? `
+CPU: ${container.cpu.toFixed(2)}%
+Memory: ${container.memory_text} (${container.memory.toFixed(2)}%)
+` : ''}
+ID: ${container.id}
+Type: ${container.appType || 'unknown'}
+            `.trim();
+
+            alert(info);
+            console.log(`ℹ️ Container info for: ${container.name}`, container);
         }
 
         // Toast notifications
@@ -1320,6 +1771,9 @@
 
                 console.log(`✓ Displayed ${visibleWidgets} widgets`);
                 console.log('📊 Full widget response:', data.widgets);
+
+                // Update widget count in stats summary
+                document.getElementById('stat-widgets').textContent = visibleWidgets;
 
                 // Show toast notification when widgets load
                 if (visibleWidgets > 0) {
