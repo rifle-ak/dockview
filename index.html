@@ -980,6 +980,32 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Portainer Widget -->
+                <div id="widget-portainer" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-dharmachakra" style="color: #13bef9;"></i>
+                        <h3 id="portainer-title">Portainer</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-containers">0</span>
+                            <span class="widget-label">Containers</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-running">0</span>
+                            <span class="widget-label">Running</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-stacks">0</span>
+                            <span class="widget-label">Stacks</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-volumes">0</span>
+                            <span class="widget-label">Volumes</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1909,6 +1935,24 @@ Type: ${container.appType || 'unknown'}
                     // Update monitor names list
                     const names = widgets.uptime_kuma.monitor_names || [];
                     document.getElementById('uptime-names').textContent = names.join(', ') || 'No monitors';
+
+                    visibleWidgets++;
+                }
+
+                // Update Portainer widget
+                if (widgets.portainer && widgets.portainer.available) {
+                    console.log('🐳 Portainer data:', widgets.portainer);
+                    document.getElementById('widget-portainer').style.display = 'block';
+
+                    // Update title with endpoint name
+                    const endpointName = widgets.portainer.endpoint_name || 'Docker';
+                    document.getElementById('portainer-title').textContent = endpointName;
+
+                    // Update stats
+                    document.getElementById('portainer-containers').textContent = widgets.portainer.total_containers || 0;
+                    document.getElementById('portainer-running').textContent = widgets.portainer.running_containers || 0;
+                    document.getElementById('portainer-stacks').textContent = widgets.portainer.total_stacks || 0;
+                    document.getElementById('portainer-volumes').textContent = widgets.portainer.total_volumes || 0;
 
                     visibleWidgets++;
                 }
