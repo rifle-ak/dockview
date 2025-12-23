@@ -462,10 +462,24 @@ async def get_tautulli_stats():
         for lib in libs_data:
             section_type = lib.get('section_type', '')
             if section_type == 'movie':
-                total_movies += lib.get('count', 0)
+                # Safely convert count to int
+                try:
+                    count = lib.get('count', 0)
+                    total_movies += int(count) if count else 0
+                except (ValueError, TypeError):
+                    pass
             elif section_type == 'show':
-                total_shows += lib.get('count', 0)
-                total_episodes += lib.get('child_count', 0)
+                # Safely convert counts to int
+                try:
+                    count = lib.get('count', 0)
+                    total_shows += int(count) if count else 0
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    child_count = lib.get('child_count', 0)
+                    total_episodes += int(child_count) if child_count else 0
+                except (ValueError, TypeError):
+                    pass
 
     return {
         "stream_count": stream_count,
@@ -836,32 +850,30 @@ async def get_uptime_kuma_stats():
 
     # Parse status page response
     # Structure: {publicGroupList: [...], config: {...}}
+    # Note: Public status page API doesn't include real-time status/heartbeat data
     public_groups = data.get('publicGroupList', [])
 
     total_monitors = 0
-    up_monitors = 0
-    down_monitors = 0
+    monitor_names = []
 
     # Count monitors across all groups
     for group in public_groups:
         monitor_list = group.get('monitorList', [])
         for monitor in monitor_list:
             total_monitors += 1
-            # Status: 1 = up, 0 = down, 2 = pending
-            status = monitor.get('status', 0)
-            if status == 1:
-                up_monitors += 1
-            elif status == 0:
-                down_monitors += 1
+            monitor_names.append(monitor.get('name', 'Unknown'))
 
-    # Calculate uptime percentage
-    uptime = round((up_monitors / total_monitors * 100), 1) if total_monitors > 0 else 0
+    # Get incident data if available
+    incident = data.get('incident')
+    has_incident = incident is not None
+
+    logger.info(f"💚 Uptime Kuma: Found {total_monitors} monitors: {', '.join(monitor_names)}")
 
     return {
         "total_monitors": total_monitors,
-        "up": up_monitors,
-        "down": down_monitors,
-        "uptime": uptime,
+        "monitor_names": monitor_names,
+        "has_incident": has_incident,
+        "status_page_title": data.get('config', {}).get('title', 'Status Page'),
         "available": True
     }
 

@@ -740,24 +740,16 @@
                 <div id="widget-uptime" class="widget-card" style="display: none;">
                     <div class="widget-header">
                         <i class="fas fa-heartbeat" style="color: #10b981;"></i>
-                        <h3>Service Uptime</h3>
+                        <h3 id="uptime-title">Status Page</h3>
                     </div>
                     <div class="widget-content">
                         <div class="widget-stat">
-                            <span class="widget-value" id="uptime-up">0</span>
-                            <span class="widget-label">Online</span>
+                            <span class="widget-value" id="uptime-monitors">0</span>
+                            <span class="widget-label">Monitored</span>
                         </div>
-                        <div class="widget-stat">
-                            <span class="widget-value" id="uptime-down">0</span>
-                            <span class="widget-label">Down</span>
-                        </div>
-                        <div class="widget-stat">
-                            <span class="widget-value" id="uptime-total">0</span>
-                            <span class="widget-label">Total</span>
-                        </div>
-                        <div class="widget-stat">
-                            <span class="widget-value" id="uptime-percent">0%</span>
-                            <span class="widget-label">Uptime</span>
+                        <div class="widget-stat" style="grid-column: 1 / -1; text-align: center;">
+                            <span class="widget-value" id="uptime-names" style="font-size: 0.9rem; white-space: normal;">--</span>
+                            <span class="widget-label">Services</span>
                         </div>
                     </div>
                 </div>
@@ -1311,18 +1303,17 @@
                 if (widgets.uptime_kuma && widgets.uptime_kuma.available) {
                     console.log('💚 Uptime Kuma data:', widgets.uptime_kuma);
                     document.getElementById('widget-uptime').style.display = 'block';
-                    document.getElementById('uptime-up').textContent = widgets.uptime_kuma.up || 0;
-                    document.getElementById('uptime-down').textContent = widgets.uptime_kuma.down || 0;
-                    document.getElementById('uptime-total').textContent = widgets.uptime_kuma.total_monitors || 0;
-                    document.getElementById('uptime-percent').textContent = (widgets.uptime_kuma.uptime || 0) + '%';
 
-                    // Color code the down count if > 0
-                    const downElement = document.getElementById('uptime-down');
-                    if (widgets.uptime_kuma.down > 0) {
-                        downElement.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                        downElement.style.webkitBackgroundClip = 'text';
-                        downElement.style.webkitTextFillColor = 'transparent';
-                    }
+                    // Update title with status page name
+                    const title = widgets.uptime_kuma.status_page_title || 'Status Page';
+                    document.getElementById('uptime-title').textContent = title;
+
+                    // Update monitor count
+                    document.getElementById('uptime-monitors').textContent = widgets.uptime_kuma.total_monitors || 0;
+
+                    // Update monitor names list
+                    const names = widgets.uptime_kuma.monitor_names || [];
+                    document.getElementById('uptime-names').textContent = names.join(', ') || 'No monitors';
 
                     visibleWidgets++;
                 }
