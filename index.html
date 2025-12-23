@@ -1261,12 +1261,12 @@
                 }
             });
 
-            // Update the stats summary bar
-            document.getElementById('stat-total-containers').textContent = total;
-            document.getElementById('stat-running').textContent = running;
-            document.getElementById('stat-stopped').textContent = stopped;
-            document.getElementById('stat-cpu').textContent = totalCpu.toFixed(1) + '%';
-            document.getElementById('stat-ram').textContent = totalRam.toFixed(1) + ' GB';
+            // Update the stats summary bar with animations
+            animateNumber(document.getElementById('stat-total-containers'), 0, total, 1200);
+            animateNumber(document.getElementById('stat-running'), 0, running, 1000);
+            animateNumber(document.getElementById('stat-stopped'), 0, stopped, 1000);
+            animateNumber(document.getElementById('stat-cpu'), 0, totalCpu, 1400, '%');
+            animateNumber(document.getElementById('stat-ram'), 0, totalRam, 1400, ' GB');
 
             console.log(`📊 Stats: ${total} total, ${running} running, ${stopped} stopped, CPU: ${totalCpu.toFixed(1)}%, RAM: ${totalRam.toFixed(1)} GB`);
         }
@@ -1733,6 +1733,44 @@ Type: ${container.appType || 'unknown'}
             });
         }
 
+        // Number animation utilities
+        function animateNumber(element, start, end, duration = 1000, suffix = '', prefix = '') {
+            if (!element) return;
+
+            const startTime = performance.now();
+            const range = end - start;
+
+            // Easing function for smooth deceleration
+            const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easedProgress = easeOutQuart(progress);
+                const currentValue = start + (range * easedProgress);
+
+                // Format the number based on its size
+                let displayValue;
+                if (end >= 1000) {
+                    displayValue = Math.floor(currentValue).toLocaleString();
+                } else if (end >= 100) {
+                    displayValue = Math.floor(currentValue);
+                } else if (end >= 10) {
+                    displayValue = currentValue.toFixed(1);
+                } else {
+                    displayValue = currentValue.toFixed(2);
+                }
+
+                element.textContent = prefix + displayValue + suffix;
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
         // Widget functions (with error handling and fast timeout)
         async function fetchWidgets() {
             try {
@@ -1765,10 +1803,10 @@ Type: ${container.appType || 'unknown'}
                 if (widgets.tautulli && widgets.tautulli.available) {
                     console.log('📺 Tautulli data:', widgets.tautulli);
                     document.getElementById('widget-tautulli').style.display = 'block';
-                    document.getElementById('tautulli-movies').textContent = (widgets.tautulli.total_movies || 0).toLocaleString();
-                    document.getElementById('tautulli-shows').textContent = (widgets.tautulli.total_shows || 0).toLocaleString();
-                    document.getElementById('tautulli-episodes').textContent = (widgets.tautulli.total_episodes || 0).toLocaleString();
-                    document.getElementById('tautulli-plays').textContent = widgets.tautulli.plays_today || 0;
+                    animateNumber(document.getElementById('tautulli-movies'), 0, widgets.tautulli.total_movies || 0, 1200);
+                    animateNumber(document.getElementById('tautulli-shows'), 0, widgets.tautulli.total_shows || 0, 1300);
+                    animateNumber(document.getElementById('tautulli-episodes'), 0, widgets.tautulli.total_episodes || 0, 1400);
+                    animateNumber(document.getElementById('tautulli-plays'), 0, widgets.tautulli.plays_today || 0, 1000);
                     visibleWidgets++;
                 }
 
@@ -1776,9 +1814,9 @@ Type: ${container.appType || 'unknown'}
                 if (widgets.pihole && widgets.pihole.available) {
                     console.log('🛡️ Pi-hole data:', widgets.pihole);
                     document.getElementById('widget-pihole').style.display = 'block';
-                    document.getElementById('pihole-blocked').textContent = (widgets.pihole.blocked_today || 0).toLocaleString();
-                    document.getElementById('pihole-percent').textContent = (widgets.pihole.percent_blocked || 0) + '%';
-                    document.getElementById('pihole-queries').textContent = (widgets.pihole.queries_today || 0).toLocaleString();
+                    animateNumber(document.getElementById('pihole-blocked'), 0, widgets.pihole.blocked_today || 0, 1400);
+                    animateNumber(document.getElementById('pihole-percent'), 0, widgets.pihole.percent_blocked || 0, 1200, '%');
+                    animateNumber(document.getElementById('pihole-queries'), 0, widgets.pihole.queries_today || 0, 1500);
 
                     // Create Pi-hole blocking trends chart
                     createPiholeChart(widgets.pihole);
