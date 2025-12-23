@@ -393,6 +393,7 @@ async def get_all_widgets():
         ('scrutiny', get_scrutiny_stats()),
         ('speedtest', get_speedtest_stats()),
         ('uptime_kuma', get_uptime_kuma_stats()),
+        ('portainer', get_portainer_stats()),
     ]
 
     # Run all tasks concurrently with return_exceptions to not block on failures
@@ -874,6 +875,51 @@ async def get_uptime_kuma_stats():
         "monitor_names": monitor_names,
         "has_incident": has_incident,
         "status_page_title": data.get('config', {}).get('title', 'Status Page'),
+        "available": True
+    }
+
+@app.get("/widgets/portainer")
+async def get_portainer_stats():
+    """Get Docker management stats from Portainer"""
+    service_config = config.get('services', {}).get('portainer', {})
+    api_key = service_config.get('api_key', '')
+
+    if not api_key:
+        logger.warning("Portainer: No API key configured")
+        return None
+
+    # Portainer API requires authentication
+    # Get endpoints (Docker environments)
+    endpoints_data = await fetch_service_data('portainer', '/api/endpoints')
+
+    if not endpoints_data:
+        return None
+
+    # Get first endpoint (usually local Docker)
+    endpoint_id = endpoints_data[0].get('Id', 1) if endpoints_data else 1
+
+    # Get container count
+    containers_data = await fetch_service_data('portainer', f'/api/endpoints/{endpoint_id}/docker/containers/json?all=1')
+
+    # Get stack count
+    stacks_data = await fetch_service_data('portainer', '/api/stacks')
+
+    # Get volume count
+    volumes_data = await fetch_service_data('portainer', f'/api/endpoints/{endpoint_id}/docker/volumes')
+
+    total_containers = len(containers_data) if containers_data else 0
+    running_containers = len([c for c in (containers_data or []) if c.get('State') == 'running'])
+    total_stacks = len(stacks_data) if stacks_data else 0
+    total_volumes = len(volumes_data.get('Volumes', [])) if volumes_data else 0
+
+    logger.info(f"🐳 Portainer: {total_containers} containers ({running_containers} running), {total_stacks} stacks, {total_volumes} volumes")
+
+    return {
+        "total_containers": total_containers,
+        "running_containers": running_containers,
+        "total_stacks": total_stacks,
+        "total_volumes": total_volumes,
+        "endpoint_name": endpoints_data[0].get('Name', 'Docker') if endpoints_data else 'Docker',
         "available": True
     }
 

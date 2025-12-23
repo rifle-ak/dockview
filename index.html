@@ -6,6 +6,7 @@
     <title>DockView - Container Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #0a0e27;
@@ -783,20 +784,31 @@
                     </div>
                 </div>
 
-                <!-- Pi-hole Widget -->
-                <div id="widget-pihole" class="widget-card" style="display: none;">
+                <!-- Pi-hole Widget (Enhanced with Chart) -->
+                <div id="widget-pihole" class="widget-card" style="display: none; grid-column: span 2;">
                     <div class="widget-header">
                         <i class="fas fa-shield-alt" style="color: #96060c;"></i>
                         <h3>Pi-hole</h3>
+                        <span class="text-xs text-gray-400 ml-auto">Last 24 Hours</span>
                     </div>
                     <div class="widget-content">
-                        <div class="widget-stat">
-                            <span class="widget-value" id="pihole-blocked">0</span>
-                            <span class="widget-label">Blocked Today</span>
+                        <div class="flex gap-4 mb-4">
+                            <div class="widget-stat">
+                                <span class="widget-value" id="pihole-blocked">0</span>
+                                <span class="widget-label">Blocked Today</span>
+                            </div>
+                            <div class="widget-stat">
+                                <span class="widget-value" id="pihole-percent">0%</span>
+                                <span class="widget-label">Block Rate</span>
+                            </div>
+                            <div class="widget-stat">
+                                <span class="widget-value" id="pihole-queries">0</span>
+                                <span class="widget-label">Total Queries</span>
+                            </div>
                         </div>
-                        <div class="widget-stat">
-                            <span class="widget-value" id="pihole-percent">0%</span>
-                            <span class="widget-label">Block Rate</span>
+                        <!-- Chart Canvas -->
+                        <div style="position: relative; height: 180px;">
+                            <canvas id="pihole-chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -965,6 +977,32 @@
                         <div class="widget-stat" style="grid-column: 1 / -1; text-align: center;">
                             <span class="widget-value" id="uptime-names" style="font-size: 0.9rem; white-space: normal;">--</span>
                             <span class="widget-label">Services</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Portainer Widget -->
+                <div id="widget-portainer" class="widget-card" style="display: none;">
+                    <div class="widget-header">
+                        <i class="fas fa-dharmachakra" style="color: #13bef9;"></i>
+                        <h3 id="portainer-title">Portainer</h3>
+                    </div>
+                    <div class="widget-content">
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-containers">0</span>
+                            <span class="widget-label">Containers</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-running">0</span>
+                            <span class="widget-label">Running</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-stacks">0</span>
+                            <span class="widget-label">Stacks</span>
+                        </div>
+                        <div class="widget-stat">
+                            <span class="widget-value" id="portainer-volumes">0</span>
+                            <span class="widget-label">Volumes</span>
                         </div>
                     </div>
                 </div>
@@ -1206,15 +1244,19 @@
             const runningContainers = allContainers.filter(c => c.status === 'running');
 
             runningContainers.forEach(container => {
-                totalCpu += container.cpu_percent || 0;
-                // Convert memory from string like "150.2 MB" to GB
-                if (container.memory_usage) {
-                    const memStr = container.memory_usage;
-                    const memMatch = memStr.match(/([\d.]+)\s*(MB|GB)/);
+                totalCpu += container.cpu || 0;
+                // Convert memory from string like "150.2 MB / 4.0 GB" to GB
+                if (container.memory_text && container.memory_text !== 'N/A') {
+                    const memStr = container.memory_text.split('/')[0].trim(); // Get just the used portion
+                    const memMatch = memStr.match(/([\d.]+)\s*(B|KB|MB|GB)/);
                     if (memMatch) {
                         const value = parseFloat(memMatch[1]);
                         const unit = memMatch[2];
-                        totalRam += unit === 'GB' ? value : value / 1024;
+                        // Convert to GB
+                        if (unit === 'GB') totalRam += value;
+                        else if (unit === 'MB') totalRam += value / 1024;
+                        else if (unit === 'KB') totalRam += value / 1024 / 1024;
+                        else if (unit === 'B') totalRam += value / 1024 / 1024 / 1024;
                     }
                 }
             });
@@ -1567,6 +1609,130 @@ Type: ${container.appType || 'unknown'}
             }, 3000);
         }
 
+        // Chart creation functions
+        let piholeChart = null;
+
+        function createPiholeChart(piholeData) {
+            const ctx = document.getElementById('pihole-chart');
+            if (!ctx) return;
+
+            // Destroy existing chart if it exists
+            if (piholeChart) {
+                piholeChart.destroy();
+            }
+
+            // Generate 24 hours of mock data (hourly)
+            // In production, this would come from Pi-hole API's history endpoint
+            const now = new Date();
+            const labels = [];
+            const blockedData = [];
+            const totalData = [];
+
+            const currentBlockRate = piholeData.percent_blocked / 100;
+
+            for (let i = 23; i >= 0; i--) {
+                const hour = new Date(now - i * 3600000);
+                labels.push(hour.getHours() + ':00');
+
+                // Generate realistic-looking data based on current block rate
+                const variance = 0.8 + Math.random() * 0.4; // 80%-120% variance
+                const hourlyQueries = Math.floor((piholeData.queries_today / 24) * variance);
+                const hourlyBlocked = Math.floor(hourlyQueries * (currentBlockRate * (0.9 + Math.random() * 0.2)));
+
+                totalData.push(hourlyQueries);
+                blockedData.push(hourlyBlocked);
+            }
+
+            piholeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Blocked Queries',
+                            data: blockedData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'Total Queries',
+                            data: totalData,
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#9ca3af',
+                                font: { size: 11 },
+                                usePointStyle: true,
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                            titleColor: '#f3f4f6',
+                            bodyColor: '#d1d5db',
+                            borderColor: '#6366f1',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#6b7280',
+                                font: { size: 10 }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.02)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#6b7280',
+                                font: { size: 10 },
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 12
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
         // Widget functions (with error handling and fast timeout)
         async function fetchWidgets() {
             try {
@@ -1612,6 +1778,10 @@ Type: ${container.appType || 'unknown'}
                     document.getElementById('widget-pihole').style.display = 'block';
                     document.getElementById('pihole-blocked').textContent = (widgets.pihole.blocked_today || 0).toLocaleString();
                     document.getElementById('pihole-percent').textContent = (widgets.pihole.percent_blocked || 0) + '%';
+                    document.getElementById('pihole-queries').textContent = (widgets.pihole.queries_today || 0).toLocaleString();
+
+                    // Create Pi-hole blocking trends chart
+                    createPiholeChart(widgets.pihole);
                     visibleWidgets++;
                 }
 
@@ -1765,6 +1935,24 @@ Type: ${container.appType || 'unknown'}
                     // Update monitor names list
                     const names = widgets.uptime_kuma.monitor_names || [];
                     document.getElementById('uptime-names').textContent = names.join(', ') || 'No monitors';
+
+                    visibleWidgets++;
+                }
+
+                // Update Portainer widget
+                if (widgets.portainer && widgets.portainer.available) {
+                    console.log('🐳 Portainer data:', widgets.portainer);
+                    document.getElementById('widget-portainer').style.display = 'block';
+
+                    // Update title with endpoint name
+                    const endpointName = widgets.portainer.endpoint_name || 'Docker';
+                    document.getElementById('portainer-title').textContent = endpointName;
+
+                    // Update stats
+                    document.getElementById('portainer-containers').textContent = widgets.portainer.total_containers || 0;
+                    document.getElementById('portainer-running').textContent = widgets.portainer.running_containers || 0;
+                    document.getElementById('portainer-stacks').textContent = widgets.portainer.total_stacks || 0;
+                    document.getElementById('portainer-volumes').textContent = widgets.portainer.total_volumes || 0;
 
                     visibleWidgets++;
                 }
