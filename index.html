@@ -937,15 +937,20 @@
             </div>
 
             <!-- Tabs -->
-            <div class="flex justify-center border-b border-gray-700/50">
-                <button class="tab-button active" data-tab="all">
-                    <i class="fas fa-th-large"></i> All Containers
-                </button>
-                <button class="tab-button" data-tab="running">
-                    <i class="fas fa-play-circle"></i> Running
-                </button>
-                <button class="tab-button" data-tab="exited">
-                    <i class="fas fa-stop-circle"></i> Stopped
+            <div class="flex justify-between items-center border-b border-gray-700/50">
+                <div class="flex justify-center flex-1">
+                    <button class="tab-button active" data-tab="all">
+                        <i class="fas fa-th-large"></i> All Containers
+                    </button>
+                    <button class="tab-button" data-tab="running">
+                        <i class="fas fa-play-circle"></i> Running
+                    </button>
+                    <button class="tab-button" data-tab="exited">
+                        <i class="fas fa-stop-circle"></i> Stopped
+                    </button>
+                </div>
+                <button id="group-toggle" class="tab-button active mr-4" onclick="toggleGrouping()" title="Group by category">
+                    <i class="fas fa-layer-group"></i> Grouped
                 </button>
             </div>
         </div>
@@ -1038,9 +1043,66 @@
             docker: { icon: 'fab fa-docker', color: '#2496ED' }
         };
 
+        // Category definitions for grouping containers
+        const CATEGORIES = {
+            media: {
+                name: 'Media',
+                icon: 'fas fa-film',
+                color: '#a55eea',
+                apps: ['plex', 'jellyfin', 'emby', 'sonarr', 'radarr', 'lidarr', 'overseerr', 'tdarr', 'tautulli']
+            },
+            downloads: {
+                name: 'Downloads',
+                icon: 'fas fa-download',
+                color: '#3498db',
+                apps: ['transmission', 'qbittorrent', 'sabnzbd', 'nzbget', 'jackett', 'prowlarr']
+            },
+            monitoring: {
+                name: 'Monitoring',
+                icon: 'fas fa-chart-line',
+                color: '#f46800',
+                apps: ['grafana', 'prometheus', 'netdata', 'scrutiny', 'uptime-kuma', 'uptime', 'speedtest', 'speedtest-tracker']
+            },
+            network: {
+                name: 'Network & Security',
+                icon: 'fas fa-shield-alt',
+                color: '#96060c',
+                apps: ['pihole', 'adguard', 'traefik', 'nginx', 'wireguard', 'openvpn', 'vaultwarden', 'authelia']
+            },
+            cloud: {
+                name: 'Cloud & Storage',
+                icon: 'fas fa-cloud',
+                color: '#0082c9',
+                apps: ['nextcloud', 'photoprism', 'immich']
+            },
+            databases: {
+                name: 'Databases',
+                icon: 'fas fa-database',
+                color: '#336791',
+                apps: ['postgresql', 'postgres', 'mysql', 'mariadb', 'redis', 'mongodb']
+            },
+            management: {
+                name: 'Management',
+                icon: 'fas fa-dharmachakra',
+                color: '#13bef9',
+                apps: ['portainer', 'homepage', 'heimdall', 'organizr']
+            }
+        };
+
+        // Helper function to get category for an app
+        function getCategoryForApp(appType) {
+            for (const [categoryKey, category] of Object.entries(CATEGORIES)) {
+                if (category.apps.includes(appType)) {
+                    return categoryKey;
+                }
+            }
+            return 'other';
+        }
+
         let allContainers = [];
         let currentFilter = 'all';
         let searchTerm = '';
+        let groupByCategory = true;
 
         // DOM elements
         const containerGrid = document.getElementById('container-grid');
@@ -1151,17 +1213,81 @@
                 return;
             }
 
-            containerGrid.style.display = 'grid';
+            containerGrid.style.display = 'block';
             emptyState.style.display = 'none';
 
-            containerGrid.innerHTML = containers.map((container, index) => {
+            if (!groupByCategory) {
+                // Original ungrouped rendering
+                containerGrid.innerHTML = renderContainerCards(containers, 0);
+                return;
+            }
+
+            // Group containers by category
+            const grouped = {};
+            containers.forEach(container => {
+                const category = getCategoryForApp(container.appType);
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push(container);
+            });
+
+            // Render grouped containers
+            let html = '';
+            let cardIndex = 0;
+
+            // Render defined categories first
+            for (const [categoryKey, categoryDef] of Object.entries(CATEGORIES)) {
+                if (grouped[categoryKey] && grouped[categoryKey].length > 0) {
+                    html += `
+                        <div class="col-span-full mt-8 mb-4" style="animation: fadeInUp 0.6s ease-out backwards; animation-delay: ${cardIndex * 0.02}s;">
+                            <div class="flex items-center gap-3 pb-3 border-b border-gray-700/50">
+                                <div class="text-2xl" style="color: ${categoryDef.color}">
+                                    <i class="${categoryDef.icon}"></i>
+                                </div>
+                                <h2 class="text-xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
+                                    ${categoryDef.name}
+                                </h2>
+                                <span class="text-sm text-gray-400 ml-2">(${grouped[categoryKey].length})</span>
+                            </div>
+                        </div>
+                    `;
+                    html += renderContainerCards(grouped[categoryKey], cardIndex);
+                    cardIndex += grouped[categoryKey].length;
+                }
+            }
+
+            // Render "Other" category if it exists
+            if (grouped['other'] && grouped['other'].length > 0) {
+                html += `
+                    <div class="col-span-full mt-8 mb-4" style="animation: fadeInUp 0.6s ease-out backwards; animation-delay: ${cardIndex * 0.02}s;">
+                        <div class="flex items-center gap-3 pb-3 border-b border-gray-700/50">
+                            <div class="text-2xl" style="color: #6366f1">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <h2 class="text-xl font-bold bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent">
+                                Other
+                            </h2>
+                            <span class="text-sm text-gray-400 ml-2">(${grouped['other'].length})</span>
+                        </div>
+                    </div>
+                `;
+                html += renderContainerCards(grouped['other'], cardIndex);
+            }
+
+            containerGrid.innerHTML = html;
+        }
+
+        // Helper function to render container cards
+        function renderContainerCards(containers, startIndex) {
+            return containers.map((container, index) => {
                 const appIcon = APP_ICONS[container.appType] || APP_ICONS.docker;
                 const cpuClass = container.cpu > 75 ? 'progress-high' : container.cpu > 50 ? 'progress-medium' : 'progress-low';
                 const memClass = container.memory > 75 ? 'progress-high' : container.memory > 50 ? 'progress-medium' : 'progress-low';
                 const isRunning = container.status === 'running';
                 const serviceUrl = SERVICE_URLS[container.appType] || SERVICE_URLS[container.name.toLowerCase()];
                 const isClickable = serviceUrl && isRunning;
-                const animationDelay = (index * 0.05).toFixed(2);
+                const animationDelay = ((startIndex + index) * 0.05).toFixed(2);
 
                 return `
                     <div class="container-card rounded-2xl p-6 shadow-xl ${isClickable ? 'clickable' : ''}"
@@ -1268,6 +1394,24 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // Toggle category grouping
+        function toggleGrouping() {
+            groupByCategory = !groupByCategory;
+            const toggleBtn = document.getElementById('group-toggle');
+            const icon = toggleBtn.querySelector('i');
+
+            if (groupByCategory) {
+                toggleBtn.classList.add('active');
+                toggleBtn.innerHTML = '<i class="fas fa-layer-group"></i> Grouped';
+            } else {
+                toggleBtn.classList.remove('active');
+                toggleBtn.innerHTML = '<i class="fas fa-th"></i> Grid';
+            }
+
+            filterAndRenderContainers();
+            showToast(groupByCategory ? 'Grouped by category' : 'Grid view', 'info');
         }
 
         // Container actions
