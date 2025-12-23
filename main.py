@@ -440,8 +440,9 @@ async def get_tautulli_stats():
         stats_data = home_stats.get('response', {}).get('data', [])
         for stat in stats_data:
             if stat.get('stat_id') == 'top_movies' or stat.get('stat_id') == 'top_tv':
-                plays_today += stat.get('total_plays', 0)
-                duration_today += stat.get('total_duration', 0)
+                # Convert to int as API may return strings
+                plays_today += int(stat.get('total_plays', 0) or 0)
+                duration_today += int(stat.get('total_duration', 0) or 0)
 
     # Library counts
     total_movies = 0
