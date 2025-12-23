@@ -38,16 +38,25 @@
 
         /* Card animations */
         .container-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             background: linear-gradient(135deg, var(--bg-card) 0%, #1d2342 100%);
             border: 1px solid rgba(99, 102, 241, 0.1);
             position: relative;
+            animation: fadeInUp 0.6s ease-out backwards;
         }
 
         .container-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2), 0 0 40px rgba(139, 92, 246, 0.1);
-            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-12px) scale(1.02);
+            box-shadow:
+                0 25px 50px rgba(99, 102, 241, 0.3),
+                0 0 60px rgba(139, 92, 246, 0.2),
+                0 0 100px rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+
+        .container-card:active {
+            transform: translateY(-8px) scale(1.01);
+            transition: all 0.1s;
         }
 
         .container-card.clickable {
@@ -144,10 +153,12 @@
             align-items: center;
             gap: 0.25rem;
             transition: all 0.3s ease;
+            animation: pulse 3s infinite;
         }
 
         .health-badge:hover {
-            transform: scale(1.1);
+            transform: scale(1.15);
+            animation: glow 1s infinite;
         }
 
         .health-low {
@@ -192,8 +203,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shimmer 2s infinite;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 2.5s infinite;
         }
 
         @keyframes shimmer {
@@ -201,9 +212,19 @@
             100% { transform: translateX(100%); }
         }
 
-        .progress-low { background: linear-gradient(90deg, var(--success), #059669); }
-        .progress-medium { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .progress-high { background: linear-gradient(90deg, var(--danger), #dc2626); }
+        .progress-low {
+            background: linear-gradient(90deg, var(--success), #059669);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+        .progress-medium {
+            background: linear-gradient(90deg, var(--warning), #d97706);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+        }
+        .progress-high {
+            background: linear-gradient(90deg, var(--danger), #dc2626);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+            animation: pulse 2s infinite;
+        }
 
         /* Buttons */
         .btn {
@@ -256,6 +277,12 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .container-card:hover .app-icon {
+            transform: scale(1.1) rotate(5deg);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
         }
 
         /* Search bar */
@@ -381,6 +408,46 @@
             50% {
                 opacity: 0.8;
                 box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(99, 102, 241, 0.6);
             }
         }
 
@@ -1087,16 +1154,18 @@
             containerGrid.style.display = 'grid';
             emptyState.style.display = 'none';
 
-            containerGrid.innerHTML = containers.map(container => {
+            containerGrid.innerHTML = containers.map((container, index) => {
                 const appIcon = APP_ICONS[container.appType] || APP_ICONS.docker;
                 const cpuClass = container.cpu > 75 ? 'progress-high' : container.cpu > 50 ? 'progress-medium' : 'progress-low';
                 const memClass = container.memory > 75 ? 'progress-high' : container.memory > 50 ? 'progress-medium' : 'progress-low';
                 const isRunning = container.status === 'running';
                 const serviceUrl = SERVICE_URLS[container.appType] || SERVICE_URLS[container.name.toLowerCase()];
                 const isClickable = serviceUrl && isRunning;
+                const animationDelay = (index * 0.05).toFixed(2);
 
                 return `
                     <div class="container-card rounded-2xl p-6 shadow-xl ${isClickable ? 'clickable' : ''}"
+                         style="animation-delay: ${animationDelay}s;"
                          ${isClickable ? `onclick="window.open('${serviceUrl}', '_blank')"` : ''}>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
