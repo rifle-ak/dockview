@@ -535,6 +535,73 @@
             </div>
         </div>
 
+        <!-- Stats Summary Bar -->
+        <div id="stats-summary" class="mb-8" style="animation: slideInDown 0.6s ease-out;">
+            <div class="glass rounded-2xl p-6 border border-indigo-500/20">
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <!-- Total Containers -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-1" id="stat-total-containers">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-cubes"></i> Total
+                        </div>
+                    </div>
+
+                    <!-- Running -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-1" id="stat-running">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-play-circle"></i> Running
+                        </div>
+                    </div>
+
+                    <!-- Stopped -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-red-400 to-pink-400 bg-clip-text text-transparent mb-1" id="stat-stopped">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-stop-circle"></i> Stopped
+                        </div>
+                    </div>
+
+                    <!-- CPU Usage -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent mb-1" id="stat-cpu">
+                            --%
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-microchip"></i> CPU
+                        </div>
+                    </div>
+
+                    <!-- RAM Usage -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1" id="stat-ram">
+                            -- GB
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-memory"></i> RAM
+                        </div>
+                    </div>
+
+                    <!-- Widgets Active -->
+                    <div class="stat-item text-center">
+                        <div class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-1" id="stat-widgets">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">
+                            <i class="fas fa-th"></i> Widgets
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Widgets Section -->
         <div id="widgets-section" class="mb-12" style="display: none;">
             <h2 class="text-2xl font-bold mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
@@ -919,19 +986,37 @@
 
         // Update stats summary
         function updateStats() {
+            const total = allContainers.length;
             const running = allContainers.filter(c => c.status === 'running').length;
             const stopped = allContainers.filter(c => c.status !== 'running').length;
 
-            statsummary.innerHTML = `
-                <div class="stat-card">
-                    <div class="text-xs text-gray-400 mb-1">Running</div>
-                    <div class="stat-value">${running}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="text-xs text-gray-400 mb-1">Stopped</div>
-                    <div class="stat-value">${stopped}</div>
-                </div>
-            `;
+            // Calculate aggregate CPU and RAM for running containers
+            let totalCpu = 0;
+            let totalRam = 0;
+            const runningContainers = allContainers.filter(c => c.status === 'running');
+
+            runningContainers.forEach(container => {
+                totalCpu += container.cpu_percent || 0;
+                // Convert memory from string like "150.2 MB" to GB
+                if (container.memory_usage) {
+                    const memStr = container.memory_usage;
+                    const memMatch = memStr.match(/([\d.]+)\s*(MB|GB)/);
+                    if (memMatch) {
+                        const value = parseFloat(memMatch[1]);
+                        const unit = memMatch[2];
+                        totalRam += unit === 'GB' ? value : value / 1024;
+                    }
+                }
+            });
+
+            // Update the stats summary bar
+            document.getElementById('stat-total-containers').textContent = total;
+            document.getElementById('stat-running').textContent = running;
+            document.getElementById('stat-stopped').textContent = stopped;
+            document.getElementById('stat-cpu').textContent = totalCpu.toFixed(1) + '%';
+            document.getElementById('stat-ram').textContent = totalRam.toFixed(1) + ' GB';
+
+            console.log(`📊 Stats: ${total} total, ${running} running, ${stopped} stopped, CPU: ${totalCpu.toFixed(1)}%, RAM: ${totalRam.toFixed(1)} GB`);
         }
 
         // Filter and render containers
@@ -1320,6 +1405,9 @@
 
                 console.log(`✓ Displayed ${visibleWidgets} widgets`);
                 console.log('📊 Full widget response:', data.widgets);
+
+                // Update widget count in stats summary
+                document.getElementById('stat-widgets').textContent = visibleWidgets;
 
                 // Show toast notification when widgets load
                 if (visibleWidgets > 0) {
