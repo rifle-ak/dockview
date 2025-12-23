@@ -79,7 +79,8 @@ services:
   speedtest:
     enabled: true
     url: "http://speedtest-tracker:80"
-    api_key: ""  # Optional API key if configured
+    api_key: ""  # REQUIRED for running speedtests - Get from Speedtest Tracker > Admin > API Tokens
+                 # Create token with 'speedtests:run' scope
 
   # Uptime Monitoring
   uptime_kuma:

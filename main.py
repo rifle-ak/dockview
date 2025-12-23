@@ -846,23 +846,37 @@ async def run_speedtest():
             raise HTTPException(status_code=400, detail="Speedtest service not enabled")
 
         url = service_config.get('url')
+        api_key = service_config.get('api_key', '')
+
         if not url:
             raise HTTPException(status_code=400, detail="Speedtest URL not configured")
 
-        full_url = f"{url}/api/speedtest"
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Speedtest API token not configured")
+
+        # Correct endpoint: /api/v1/speedtests/run (requires Bearer token + Accept header)
+        full_url = f"{url}/api/v1/speedtests/run"
+
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Accept': 'application/json'
+        }
 
         timeout = aiohttp.ClientTimeout(total=60)  # Speedtest can take up to 60 seconds
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(full_url) as response:
+            async with session.post(full_url, headers=headers) as response:
                 if response.status in [200, 201]:
                     logger.info("✓ Speedtest triggered successfully")
                     return {"status": "success", "message": "Speedtest started"}
                 else:
-                    logger.error(f"Speedtest trigger failed with status {response.status}")
-                    raise HTTPException(status_code=response.status, detail="Failed to trigger speedtest")
+                    error_text = await response.text()
+                    logger.error(f"Speedtest trigger failed with status {response.status}: {error_text}")
+                    raise HTTPException(status_code=response.status, detail=f"Failed to trigger speedtest: {error_text}")
     except asyncio.TimeoutError:
         logger.error("Speedtest trigger timed out")
         raise HTTPException(status_code=504, detail="Speedtest request timed out")
+    except HTTPException:
+        raise  # Re-raise HTTPExceptions as-is
     except Exception as e:
         logger.error(f"Error triggering speedtest: {e}")
         raise HTTPException(status_code=500, detail=str(e))
