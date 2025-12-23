@@ -1206,15 +1206,19 @@
             const runningContainers = allContainers.filter(c => c.status === 'running');
 
             runningContainers.forEach(container => {
-                totalCpu += container.cpu_percent || 0;
-                // Convert memory from string like "150.2 MB" to GB
-                if (container.memory_usage) {
-                    const memStr = container.memory_usage;
-                    const memMatch = memStr.match(/([\d.]+)\s*(MB|GB)/);
+                totalCpu += container.cpu || 0;
+                // Convert memory from string like "150.2 MB / 4.0 GB" to GB
+                if (container.memory_text && container.memory_text !== 'N/A') {
+                    const memStr = container.memory_text.split('/')[0].trim(); // Get just the used portion
+                    const memMatch = memStr.match(/([\d.]+)\s*(B|KB|MB|GB)/);
                     if (memMatch) {
                         const value = parseFloat(memMatch[1]);
                         const unit = memMatch[2];
-                        totalRam += unit === 'GB' ? value : value / 1024;
+                        // Convert to GB
+                        if (unit === 'GB') totalRam += value;
+                        else if (unit === 'MB') totalRam += value / 1024;
+                        else if (unit === 'KB') totalRam += value / 1024 / 1024;
+                        else if (unit === 'B') totalRam += value / 1024 / 1024 / 1024;
                     }
                 }
             });
