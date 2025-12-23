@@ -670,9 +670,22 @@
                 </div>
 
                 <div class="flex items-center gap-4">
+                    <!-- Auto-refresh status indicator -->
                     <div class="text-right hidden md:block">
-                        <div class="text-sm text-gray-400">Auto-refresh</div>
-                        <div class="text-sm font-semibold text-indigo-400">Every 10s</div>
+                        <div class="text-xs text-gray-400 uppercase tracking-wide">Auto-refresh</div>
+                        <div class="flex items-center gap-2">
+                            <div id="refresh-status" class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-indigo-400">Every 10s</span>
+                                <i id="refresh-spinner" class="fas fa-sync-alt text-indigo-400" style="font-size: 12px; opacity: 0;"></i>
+                            </div>
+                        </div>
+                        <div id="last-updated" class="text-xs text-gray-500 mt-1">--</div>
+                    </div>
+
+                    <!-- Pause/Resume button -->
+                    <button id="toggle-auto-refresh" class="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 transition-all text-sm font-semibold" onclick="toggleAutoRefresh()">
+                        <i class="fas fa-pause mr-2"></i>Pause
+                    </button>
                     </div>
                     <div id="stats-summary" class="flex gap-4">
                         <!-- Stats will be injected here -->
@@ -2450,8 +2463,90 @@ Type: ${container.appType || 'unknown'}
         }
 
         // Auto-refresh
-        setInterval(fetchContainers, 10000);
-        setInterval(fetchWidgets, 30000); // Refresh widgets every 30 seconds
+        // Auto-refresh state
+        let autoRefreshEnabled = true;
+        let containerRefreshInterval = null;
+        let widgetRefreshInterval = null;
+
+        // Start auto-refresh intervals
+        function startAutoRefresh() {
+            if (containerRefreshInterval) clearInterval(containerRefreshInterval);
+            if (widgetRefreshInterval) clearInterval(widgetRefreshInterval);
+
+            containerRefreshInterval = setInterval(fetchContainers, 10000);
+            widgetRefreshInterval = setInterval(fetchWidgets, 30000);
+        }
+
+        // Stop auto-refresh intervals
+        function stopAutoRefresh() {
+            if (containerRefreshInterval) clearInterval(containerRefreshInterval);
+            if (widgetRefreshInterval) clearInterval(widgetRefreshInterval);
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const btn = document.getElementById('toggle-auto-refresh');
+            const statusText = document.getElementById('refresh-status').querySelector('span');
+
+            if (autoRefreshEnabled) {
+                startAutoRefresh();
+                btn.innerHTML = '<i class="fas fa-pause mr-2"></i>Pause';
+                btn.classList.remove('bg-red-500/20', 'border-red-500/40', 'hover:bg-red-500/30');
+                btn.classList.add('bg-indigo-500/20', 'border-indigo-500/40', 'hover:bg-indigo-500/30');
+                statusText.textContent = 'Every 10s';
+                showToast('Auto-refresh enabled', 'success');
+            } else {
+                stopAutoRefresh();
+                btn.innerHTML = '<i class="fas fa-play mr-2"></i>Resume';
+                btn.classList.remove('bg-indigo-500/20', 'border-indigo-500/40', 'hover:bg-indigo-500/30');
+                btn.classList.add('bg-red-500/20', 'border-red-500/40', 'hover:bg-red-500/30');
+                statusText.textContent = 'Paused';
+                statusText.classList.add('text-red-400');
+                showToast('Auto-refresh paused', 'info');
+            }
+        }
+
+        // Show refresh spinner animation
+        function showRefreshIndicator() {
+            const spinner = document.getElementById('refresh-spinner');
+            spinner.style.opacity = '1';
+            spinner.style.animation = 'spin 1s linear infinite';
+        }
+
+        // Hide refresh spinner animation
+        function hideRefreshIndicator() {
+            const spinner = document.getElementById('refresh-spinner');
+            spinner.style.opacity = '0';
+            spinner.style.animation = '';
+        }
+
+        // Update last updated timestamp
+        function updateLastRefreshTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+            document.getElementById('last-updated').textContent = `Updated ${timeStr}`;
+        }
+
+        // Wrap fetch functions to show indicators
+        const originalFetchContainers = fetchContainers;
+        fetchContainers = async function() {
+            showRefreshIndicator();
+            try {
+                await originalFetchContainers();
+                updateLastRefreshTime();
+            } finally {
+                setTimeout(hideRefreshIndicator, 500); // Keep spinner visible for 500ms
+            }
+        };
+
+        // Start auto-refresh
+        startAutoRefresh();
 
         // Initial fetch - containers first for instant display, widgets after
         fetchContainers();
