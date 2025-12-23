@@ -85,7 +85,7 @@ services:
   uptime_kuma:
     enabled: true
     url: "http://uptime-kuma:3001"
-    slug: "default"  # Status page slug (default is "default")
+    slug: "aor"  # Your status page slug from /status/aor
     # Note: Requires a published status page in Uptime Kuma
     # Go to Status Pages > Create/Edit > Publish to create one
 
