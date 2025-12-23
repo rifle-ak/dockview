@@ -1114,6 +1114,40 @@
             </div>
         </div>
 
+        <!-- Top 10 Resource Hogs -->
+        <div id="resource-hogs" class="mb-12" style="display: none;">
+            <div class="glass rounded-3xl p-8 border-2 border-indigo-500/20 shadow-2xl">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+                        <i class="fas fa-chart-bar mr-3"></i>Top Resource Consumers
+                    </h2>
+                    <button id="toggle-resource-hogs" class="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 transition-all" onclick="toggleResourceHogs()">
+                        <i class="fas fa-chevron-up"></i> Collapse
+                    </button>
+                </div>
+
+                <div id="resource-hogs-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Top 10 CPU -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4 text-orange-400">
+                                <i class="fas fa-microchip mr-2"></i>Top 10 by CPU Usage
+                            </h3>
+                            <div id="cpu-hogs" class="space-y-3"></div>
+                        </div>
+
+                        <!-- Top 10 RAM -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4 text-purple-400">
+                                <i class="fas fa-memory mr-2"></i>Top 10 by RAM Usage
+                            </h3>
+                            <div id="ram-hogs" class="space-y-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Loading State -->
         <div id="loading" class="flex justify-center items-center py-20">
             <div class="spinner"></div>
@@ -1388,6 +1422,99 @@
             }
 
             renderContainers(filtered);
+            renderResourceHogs();  // Update resource hogs chart
+        }
+
+        // Render Top 10 Resource Hogs
+        function renderResourceHogs() {
+            const runningContainers = allContainers.filter(c => c.status === 'running');
+
+            if (runningContainers.length === 0) {
+                document.getElementById('resource-hogs').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('resource-hogs').style.display = 'block';
+
+            // Top 10 by CPU
+            const topCpu = [...runningContainers]
+                .sort((a, b) => b.cpu - a.cpu)
+                .slice(0, 10);
+
+            // Top 10 by RAM
+            const topRam = [...runningContainers]
+                .sort((a, b) => b.memory - a.memory)
+                .slice(0, 10);
+
+            // Render CPU bars
+            const cpuHogsEl = document.getElementById('cpu-hogs');
+            cpuHogsEl.innerHTML = topCpu.map((container, index) => {
+                const appIcon = APP_ICONS[container.appType] || APP_ICONS.docker;
+                const percent = container.cpu.toFixed(1);
+                const colorClass = container.cpu > 75 ? 'bg-red-500' : container.cpu > 50 ? 'bg-yellow-500' : 'bg-green-500';
+                const glowClass = container.cpu > 75 ? 'shadow-red-500/50' : container.cpu > 50 ? 'shadow-yellow-500/50' : 'shadow-green-500/50';
+
+                return `
+                    <div class="relative group">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-sm font-bold text-gray-400 w-6">${index + 1}.</span>
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <i class="${appIcon.icon} text-xl" style="color: ${appIcon.color}"></i>
+                                <span class="text-sm font-medium truncate">${container.name}</span>
+                            </div>
+                            <span class="text-sm font-bold ${container.cpu > 75 ? 'text-red-400' : container.cpu > 50 ? 'text-yellow-400' : 'text-green-400'}">${percent}%</span>
+                        </div>
+                        <div class="h-8 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50">
+                            <div class="${colorClass} h-full rounded-xl transition-all duration-1000 ease-out shadow-lg ${glowClass} flex items-center justify-center"
+                                 style="width: ${Math.min(container.cpu, 100)}%">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Render RAM bars
+            const ramHogsEl = document.getElementById('ram-hogs');
+            ramHogsEl.innerHTML = topRam.map((container, index) => {
+                const appIcon = APP_ICONS[container.appType] || APP_ICONS.docker;
+                const percent = container.memory.toFixed(1);
+                const colorClass = container.memory > 75 ? 'bg-red-500' : container.memory > 50 ? 'bg-yellow-500' : 'bg-green-500';
+                const glowClass = container.memory > 75 ? 'shadow-red-500/50' : container.memory > 50 ? 'shadow-yellow-500/50' : 'shadow-green-500/50';
+
+                return `
+                    <div class="relative group">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-sm font-bold text-gray-400 w-6">${index + 1}.</span>
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <i class="${appIcon.icon} text-xl" style="color: ${appIcon.color}"></i>
+                                <span class="text-sm font-medium truncate">${container.name}</span>
+                            </div>
+                            <span class="text-sm font-bold ${container.memory > 75 ? 'text-red-400' : container.memory > 50 ? 'text-yellow-400' : 'text-green-400'}">${percent}%</span>
+                        </div>
+                        <div class="h-8 bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700/50">
+                            <div class="${colorClass} h-full rounded-xl transition-all duration-1000 ease-out shadow-lg ${glowClass}"
+                                 style="width: ${Math.min(container.memory, 100)}%">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Toggle resource hogs section
+        let resourceHogsExpanded = true;
+        function toggleResourceHogs() {
+            resourceHogsExpanded = !resourceHogsExpanded;
+            const content = document.getElementById('resource-hogs-content');
+            const btn = document.getElementById('toggle-resource-hogs');
+
+            if (resourceHogsExpanded) {
+                content.style.display = 'block';
+                btn.innerHTML = '<i class="fas fa-chevron-up"></i> Collapse';
+            } else {
+                content.style.display = 'none';
+                btn.innerHTML = '<i class="fas fa-chevron-down"></i> Expand';
+            }
         }
 
         // Render containers
