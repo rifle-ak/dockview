@@ -440,9 +440,18 @@ async def get_tautulli_stats():
         stats_data = home_stats.get('response', {}).get('data', [])
         for stat in stats_data:
             if stat.get('stat_id') == 'top_movies' or stat.get('stat_id') == 'top_tv':
-                # Convert to int as API may return strings
-                plays_today += int(stat.get('total_plays', 0) or 0)
-                duration_today += int(stat.get('total_duration', 0) or 0)
+                # Convert to int safely - handle strings, None, empty strings
+                try:
+                    total_plays = stat.get('total_plays', 0)
+                    plays_today += int(total_plays) if total_plays else 0
+                except (ValueError, TypeError):
+                    pass  # Skip if conversion fails
+
+                try:
+                    total_duration = stat.get('total_duration', 0)
+                    duration_today += int(total_duration) if total_duration else 0
+                except (ValueError, TypeError):
+                    pass  # Skip if conversion fails
 
     # Library counts
     total_movies = 0
