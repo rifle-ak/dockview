@@ -646,6 +646,13 @@
                         <span class="mx-3">•</span>
                         <span id="hero-speedtest-time">Last tested: --</span>
                     </div>
+                    <button
+                        id="run-speedtest-btn"
+                        onclick="runSpeedtest()"
+                        class="mt-4 px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-lg font-semibold text-sm transition-all duration-300 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+                        <i class="fas fa-play-circle mr-2"></i>
+                        <span id="speedtest-btn-text">Run Speed Test</span>
+                    </button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -1593,6 +1600,86 @@ Type: ${container.appType || 'unknown'}
 
             alert(info);
             console.log(`ℹ️ Container info for: ${container.name}`, container);
+        }
+
+        // Speedtest trigger function
+        async function runSpeedtest() {
+            const btn = document.getElementById('run-speedtest-btn');
+            const btnText = document.getElementById('speedtest-btn-text');
+            const btnIcon = btn.querySelector('i');
+
+            try {
+                // Disable button and show loading state
+                btn.disabled = true;
+                btnIcon.className = 'fas fa-spinner fa-spin mr-2';
+                btnText.textContent = 'Running Test...';
+
+                showToast('Starting speed test... This may take up to 60 seconds', 'info');
+
+                const response = await fetch('/speedtest/run', { method: 'POST' });
+                const result = await response.json();
+
+                if (response.ok) {
+                    showToast('Speed test started! Results will appear shortly.', 'success');
+
+                    // Poll for new results every 5 seconds for up to 90 seconds
+                    let attempts = 0;
+                    const maxAttempts = 18;
+                    const pollInterval = setInterval(async () => {
+                        attempts++;
+                        try {
+                            const widgetResponse = await fetch('/widgets/all');
+                            const widgetData = await widgetResponse.json();
+
+                            if (widgetData.widgets && widgetData.widgets.speedtest) {
+                                const speedtest = widgetData.widgets.speedtest;
+                                const testTime = new Date(speedtest.timestamp);
+                                const now = new Date();
+                                const ageSeconds = (now - testTime) / 1000;
+
+                                // If result is less than 5 seconds old, it's the new test
+                                if (ageSeconds < 5) {
+                                    clearInterval(pollInterval);
+                                    showToast('Speed test complete! Dashboard updated.', 'success');
+
+                                    // Refresh widgets to update gauges
+                                    fetchWidgets();
+
+                                    // Re-enable button
+                                    btn.disabled = false;
+                                    btnIcon.className = 'fas fa-check-circle mr-2';
+                                    btnText.textContent = 'Test Complete';
+
+                                    setTimeout(() => {
+                                        btnIcon.className = 'fas fa-play-circle mr-2';
+                                        btnText.textContent = 'Run Speed Test';
+                                    }, 3000);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error polling for speedtest results:', e);
+                        }
+
+                        if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            btn.disabled = false;
+                            btnIcon.className = 'fas fa-play-circle mr-2';
+                            btnText.textContent = 'Run Speed Test';
+                            showToast('Speed test taking longer than expected. Check back shortly.', 'info');
+                        }
+                    }, 5000);
+                } else {
+                    throw new Error(result.detail || 'Failed to start speed test');
+                }
+            } catch (error) {
+                console.error('Error running speedtest:', error);
+                showToast('Failed to start speed test: ' + error.message, 'error');
+
+                // Re-enable button
+                btn.disabled = false;
+                btnIcon.className = 'fas fa-play-circle mr-2';
+                btnText.textContent = 'Run Speed Test';
+            }
         }
 
         // Toast notifications
