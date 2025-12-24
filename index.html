@@ -2051,40 +2051,136 @@
             }
         }
 
-        // Quick action functions
-        function viewLogs(id, name) {
-            showToast(`Logs feature coming soon for ${name}`, 'info');
-            console.log(`📋 View logs for container: ${id} (${name})`);
-            // TODO: Implement modal with live log streaming
-            // Could use: docker logs -f ${id} via WebSocket
+        // Quick action functions - Logs Viewer Modal
+        async function viewLogs(id, name) {
+            const modal = document.getElementById('logs-modal');
+            const loading = document.getElementById('logs-loading');
+            const content = document.getElementById('logs-content');
+            const containerName = document.getElementById('logs-container-name');
+
+            containerName.textContent = name;
+            modal.classList.add('active');
+            loading.style.display = 'block';
+            content.style.display = 'none';
+
+            try {
+                const response = await fetch(`/logs/${id}?tail=200`);
+                const data = await response.json();
+
+                content.textContent = data.logs || 'No logs available';
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            } catch (error) {
+                content.textContent = `Error loading logs: ${error.message}`;
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            }
+        }
+
+        function closeLogsModal() {
+            document.getElementById('logs-modal').classList.remove('active');
         }
 
         function execTerminal(id, name) {
             showToast(`Terminal feature coming soon for ${name}`, 'info');
             console.log(`💻 Exec terminal for container: ${id} (${name})`);
-            // TODO: Implement web terminal using xterm.js + WebSocket
-            // Execute: docker exec -it ${id} /bin/sh or /bin/bash
         }
 
-        function showContainerInfo(id) {
+        // Container Details Modal
+        async function showContainerInfo(id) {
+            const modal = document.getElementById('details-modal');
+            const loading = document.getElementById('details-loading');
+            const content = document.getElementById('details-content');
+            const containerName = document.getElementById('details-container-name');
+
             const container = allContainers.find(c => c.id === id);
             if (!container) return;
 
-            const info = `
-Container: ${container.name}
-Image: ${container.image}
-Status: ${container.status}
-Uptime: ${container.uptime}
-${container.status === 'running' ? `
-CPU: ${container.cpu.toFixed(2)}%
-Memory: ${container.memory_text} (${container.memory.toFixed(2)}%)
-` : ''}
-ID: ${container.id}
-Type: ${container.appType || 'unknown'}
-            `.trim();
+            containerName.textContent = container.name;
+            modal.classList.add('active');
+            loading.style.display = 'block';
+            content.style.display = 'none';
 
-            alert(info);
-            console.log(`ℹ️ Container info for: ${container.name}`, container);
+            try {
+                const response = await fetch(`/details/${id}`);
+                const data = await response.json();
+
+                const html = `
+                    <div class="space-y-6">
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-3 text-indigo-400">
+                                <i class="fas fa-info-circle mr-2"></i>Basic Information
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div><span class="text-gray-400">ID:</span> <span class="font-mono text-xs">${data.id.substring(0, 12)}</span></div>
+                                <div><span class="text-gray-400">Status:</span> <span class="font-semibold">${data.status}</span></div>
+                                <div class="col-span-2"><span class="text-gray-400">Image:</span> <span class="font-mono text-xs">${data.image}</span></div>
+                                <div class="col-span-2"><span class="text-gray-400">Created:</span> ${new Date(data.created).toLocaleString()}</div>
+                                <div><span class="text-gray-400">Restart Policy:</span> ${data.restart_policy}</div>
+                            </div>
+                        </div>
+
+                        ${data.networks && data.networks.length > 0 ? `
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-3 text-indigo-400">
+                                <i class="fas fa-network-wired mr-2"></i>Networks
+                            </h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${data.networks.map(net => `<span class="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-lg text-sm font-mono">${net}</span>`).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${data.volumes && data.volumes.length > 0 ? `
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-3 text-purple-400">
+                                <i class="fas fa-hdd mr-2"></i>Volume Mounts
+                            </h3>
+                            <div class="space-y-2">
+                                ${data.volumes.map(vol => `<div class="font-mono text-xs bg-gray-800/50 p-2 rounded">${vol}</div>`).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${data.env && data.env.length > 0 ? `
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-3 text-green-400">
+                                <i class="fas fa-cog mr-2"></i>Environment Variables (${data.env.length})
+                            </h3>
+                            <div class="space-y-1 max-h-64 overflow-y-auto">
+                                ${data.env.map(e => {
+                                    const parts = e.split('=');
+                                    const key = parts[0];
+                                    const value = parts.slice(1).join('=');
+                                    return `<div class="font-mono text-xs"><span class="text-green-400">${key}</span>=<span class="text-gray-300">${value}</span></div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${data.command && data.command.length > 0 ? `
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-3 text-yellow-400">
+                                <i class="fas fa-terminal mr-2"></i>Command
+                            </h3>
+                            <div class="font-mono text-xs bg-gray-800/50 p-3 rounded">${data.command.join(' ')}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                content.innerHTML = html;
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            } catch (error) {
+                content.innerHTML = `<p class="text-red-400">Error loading details: ${error.message}</p>`;
+                loading.style.display = 'none';
+                content.style.display = 'block';
+            }
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('details-modal').classList.remove('active');
         }
 
         // Speedtest trigger function
