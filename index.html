@@ -1317,6 +1317,22 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Quick Filters -->
+            <div class="flex flex-wrap gap-2 mt-4">
+                <button onclick="filterByHighCPU()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 hover:bg-orange-500/30 transition-all ripple">
+                    <i class="fas fa-fire mr-1.5"></i>High CPU (>75%)
+                </button>
+                <button onclick="filterByHighRAM()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 transition-all ripple">
+                    <i class="fas fa-memory mr-1.5"></i>High RAM (>75%)
+                </button>
+                <button onclick="filterByHealth()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all ripple">
+                    <i class="fas fa-exclamation-triangle mr-1.5"></i>Unhealthy
+                </button>
+                <button onclick="clearFilters()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-500/20 text-gray-300 border border-gray-500/40 hover:bg-gray-500/30 transition-all ripple">
+                    <i class="fas fa-times mr-1.5"></i>Clear
+                </button>
+            </div>
         </div>
 
         <!-- Top 10 Resource Hogs -->
@@ -1674,6 +1690,15 @@
                 );
             }
 
+            // Apply quick filters
+            if (activeFilter === 'cpu') {
+                filtered = filtered.filter(c => c.cpu > 75);
+            } else if (activeFilter === 'ram') {
+                filtered = filtered.filter(c => c.memory > 75);
+            } else if (activeFilter === 'unhealthy') {
+                filtered = filtered.filter(c => c.cpu > 75 || c.memory > 75 || c.status !== 'running');
+            }
+
             renderContainers(filtered);
             renderResourceHogs();  // Update resource hogs chart
         }
@@ -2018,6 +2043,45 @@
                 gridBtn.classList.add('active');
                 groupBtn.classList.remove('active');
             }
+        }
+
+        // Quick filter functions
+        let activeFilter = null;
+
+        function filterByHighCPU() {
+            activeFilter = 'cpu';
+            searchTerm = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = '';
+            filterAndRenderContainers();
+            showToast('🔥 Showing high CPU containers (>75%)', 'info');
+        }
+
+        function filterByHighRAM() {
+            activeFilter = 'ram';
+            searchTerm = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = '';
+            filterAndRenderContainers();
+            showToast('💾 Showing high RAM containers (>75%)', 'info');
+        }
+
+        function filterByHealth() {
+            activeFilter = 'unhealthy';
+            searchTerm = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = '';
+            filterAndRenderContainers();
+            showToast('⚠️ Showing unhealthy containers', 'info');
+        }
+
+        function clearFilters() {
+            activeFilter = null;
+            searchTerm = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = '';
+            filterAndRenderContainers();
+            showToast('✓ Filters cleared', 'success');
         }
 
         // Container actions
