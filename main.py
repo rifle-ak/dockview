@@ -547,6 +547,74 @@ async def scan_network():
         # Return empty list instead of error to avoid breaking the UI
         return []
 
+# ===== VOLUMES ENDPOINTS =====
+
+@app.get("/volumes")
+async def get_volumes():
+    """Get all Docker volumes with usage information"""
+    try:
+        volumes = client.volumes.list()
+        volume_list = []
+
+        for volume in volumes:
+            vol_data = {
+                "name": volume.name,
+                "driver": volume.attrs.get('Driver', 'unknown'),
+                "mountpoint": volume.attrs.get('Mountpoint', 'N/A'),
+                "created": volume.attrs.get('CreatedAt', 'N/A'),
+                "scope": volume.attrs.get('Scope', 'local'),
+                "labels": volume.attrs.get('Labels') or {},
+            }
+
+            # Try to get volume size using docker system df -v
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['docker', 'system', 'df', '-v', '--format', '{{.Name}}\t{{.Size}}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                for line in result.stdout.split('\n'):
+                    if volume.name in line:
+                        parts = line.split('\t')
+                        if len(parts) >= 2:
+                            vol_data['size'] = parts[1].strip()
+                            break
+
+                if 'size' not in vol_data:
+                    vol_data['size'] = 'Unknown'
+            except:
+                vol_data['size'] = 'Unknown'
+
+            # Get containers using this volume
+            containers_using = []
+            try:
+                all_containers = client.containers.list(all=True)
+                for container in all_containers:
+                    mounts = container.attrs.get('Mounts', [])
+                    for mount in mounts:
+                        if mount.get('Type') == 'volume' and mount.get('Name') == volume.name:
+                            containers_using.append({
+                                'id': container.id[:12],
+                                'name': container.name,
+                                'status': container.status
+                            })
+                            break
+            except:
+                pass
+
+            vol_data['containers'] = containers_using
+            volume_list.append(vol_data)
+
+        logger.info(f"✓ Found {len(volume_list)} Docker volumes")
+        return volume_list
+
+    except Exception as e:
+        logger.error(f"Error fetching volumes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ===== WIDGET ENDPOINTS =====
 
 @app.get("/widgets/all")

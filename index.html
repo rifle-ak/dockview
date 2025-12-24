@@ -1064,6 +1064,11 @@
                     <button id="network-topology-btn" class="px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all text-sm font-semibold" onclick="openNetworkTopology()">
                         <i class="fas fa-project-diagram mr-2"></i>Network
                     </button>
+
+                    <!-- Volumes button -->
+                    <button id="volumes-btn" class="px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 transition-all text-sm font-semibold" onclick="openVolumesModal()">
+                        <i class="fas fa-database mr-2"></i>Volumes
+                    </button>
                     </div>
                     <div id="stats-summary" class="flex gap-3">
                         <div class="quick-stat-card">
@@ -3680,6 +3685,122 @@
             console.log('Node clicked:', nodeId);
         }
 
+        // Volume Usage Dashboard
+        function openVolumesModal() {
+            document.getElementById('volumes-modal').style.display = 'flex';
+            loadVolumes();
+        }
+
+        function closeVolumesModal() {
+            document.getElementById('volumes-modal').style.display = 'none';
+        }
+
+        async function loadVolumes() {
+            const loadingEl = document.getElementById('volumes-loading');
+            const contentEl = document.getElementById('volumes-content');
+            const statsEl = document.getElementById('volumes-stats');
+            const listEl = document.getElementById('volumes-list');
+
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+
+            try {
+                const response = await fetch('/volumes');
+                const volumes = await response.json();
+
+                // Calculate stats
+                const totalVolumes = volumes.length;
+                const volumesInUse = volumes.filter(v => v.containers.length > 0).length;
+                const volumesUnused = totalVolumes - volumesInUse;
+
+                // Render stats
+                statsEl.innerHTML = `
+                    <div class="glass p-4 rounded-xl border border-orange-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                <i class="fas fa-database text-orange-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-orange-400">${totalVolumes}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">Total Volumes</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-4 rounded-xl border border-green-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-green-400">${volumesInUse}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">In Use</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-4 rounded-xl border border-gray-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center">
+                                <i class="fas fa-times-circle text-gray-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-gray-400">${volumesUnused}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">Unused</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Render volumes
+                listEl.innerHTML = volumes.map(vol => `
+                    <div class="glass p-5 rounded-xl border ${vol.containers.length > 0 ? 'border-green-500/30' : 'border-gray-500/20'}">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-start gap-3 flex-1 min-w-0">
+                                <div class="w-10 h-10 rounded-lg ${vol.containers.length > 0 ? 'bg-green-500/20' : 'bg-gray-500/20'} flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-database ${vol.containers.length > 0 ? 'text-green-400' : 'text-gray-400'}"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-base truncate mb-1">${vol.name}</h3>
+                                    <p class="text-xs text-gray-400 truncate">${vol.mountpoint}</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5 items-end">
+                                <span class="px-3 py-1 rounded-lg text-xs font-semibold ${vol.containers.length > 0 ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'}">
+                                    ${vol.containers.length > 0 ? `${vol.containers.length} container(s)` : 'Unused'}
+                                </span>
+                                <span class="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-500/20 text-indigo-400 border border-indigo-500/40">
+                                    ${vol.size}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 text-xs text-gray-400 mb-3">
+                            <div><i class="fas fa-cog mr-2 text-gray-500"></i><span class="font-semibold">Driver:</span> ${vol.driver}</div>
+                            <div><i class="fas fa-layer-group mr-2 text-gray-500"></i><span class="font-semibold">Scope:</span> ${vol.scope}</div>
+                        </div>
+                        ${vol.containers.length > 0 ? `
+                            <div class="pt-3 border-t border-gray-700/30">
+                                <div class="text-xs text-gray-400 mb-2 font-semibold"><i class="fas fa-link mr-2"></i>Used By:</div>
+                                <div class="flex flex-wrap gap-2">
+                                    ${vol.containers.map(c => `
+                                        <span class="px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-semibold border border-indigo-500/30">
+                                            <i class="fas fa-${c.status === 'running' ? 'play' : 'stop'}-circle mr-1"></i>${c.name}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading volumes:', error);
+                listEl.innerHTML = '<p class="text-center text-red-400">Error loading volumes</p>';
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            }
+        }
+
         // Monitor container states and send notifications
         function checkContainerAlerts(containers) {
             if (!notificationPreferences.enabled || Notification.permission !== 'granted') {
@@ -4902,6 +5023,35 @@
                         <button onclick="exportSettings()" class="w-full px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 transition-all ripple text-sm font-semibold">
                             <i class="fas fa-file-export mr-2"></i>Export Settings (JSON)
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Volumes Modal -->
+    <div id="volumes-modal" class="modal">
+        <div class="modal-content" style="width: 90vw; max-width: 1200px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-database mr-3 text-orange-400"></i>
+                    Docker Volumes
+                </h2>
+                <button class="modal-close ripple" onclick="closeVolumesModal()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="volumes-loading" style="text-align: center; padding: 2rem;">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                    <p class="mt-4 text-gray-400">Loading volumes...</p>
+                </div>
+                <div id="volumes-content" style="display: none;">
+                    <div id="volumes-stats" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Volume stats will be inserted here -->
+                    </div>
+                    <div id="volumes-list" class="space-y-4">
+                        <!-- Volumes will be inserted here -->
                     </div>
                 </div>
             </div>
