@@ -47,6 +47,25 @@
             --info: var(--status-info);
         }
 
+        /* Light Mode Theme */
+        body.light-mode {
+            /* Background Colors */
+            --bg-primary: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8fafc;
+
+            /* Text Colors */
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-tertiary: #64748b;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
         * {
             font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
             -webkit-font-smoothing: antialiased;
@@ -956,6 +975,11 @@
                     <!-- Notification Settings button -->
                     <button id="notification-settings-btn" class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 transition-all text-sm font-semibold" onclick="openNotificationSettings()">
                         <i class="fas fa-bell mr-2"></i>Alerts
+                    </button>
+
+                    <!-- Dark/Light Mode Toggle -->
+                    <button id="dark-mode-toggle" class="px-4 py-2 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 transition-all text-sm font-semibold" onclick="toggleDarkMode()">
+                        <i id="dark-mode-icon" class="fas fa-moon mr-2"></i><span id="dark-mode-text">Dark</span>
                     </button>
 
                     <!-- Theme Selector button -->
@@ -4239,6 +4263,42 @@
             document.getElementById('last-updated').textContent = `Updated ${timeStr}`;
         }
 
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            const body = document.body;
+            const icon = document.getElementById('dark-mode-icon');
+            const text = document.getElementById('dark-mode-text');
+
+            body.classList.toggle('light-mode');
+            const isLightMode = body.classList.contains('light-mode');
+
+            if (isLightMode) {
+                icon.className = 'fas fa-sun mr-2';
+                text.textContent = 'Light';
+                localStorage.setItem('dockview-theme-mode', 'light');
+                showToast('☀️ Light mode enabled', 'success');
+            } else {
+                icon.className = 'fas fa-moon mr-2';
+                text.textContent = 'Dark';
+                localStorage.setItem('dockview-theme-mode', 'dark');
+                showToast('🌙 Dark mode enabled', 'success');
+            }
+        }
+
+        // Initialize dark mode from localStorage
+        function initializeDarkMode() {
+            const savedMode = localStorage.getItem('dockview-theme-mode');
+            const icon = document.getElementById('dark-mode-icon');
+            const text = document.getElementById('dark-mode-text');
+
+            if (savedMode === 'light') {
+                document.body.classList.add('light-mode');
+                icon.className = 'fas fa-sun mr-2';
+                text.textContent = 'Light';
+            }
+            // Default is dark mode, so no action needed if savedMode is null or 'dark'
+        }
+
         // Wrap fetch functions to show indicators
         const originalFetchContainers = fetchContainers;
         fetchContainers = async function() {
@@ -4270,6 +4330,9 @@
 
         // Load favorites
         loadFavorites();
+
+        // Initialize dark mode
+        initializeDarkMode();
     </script>
 
     <!-- Logs Modal -->
