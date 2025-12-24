@@ -369,6 +369,16 @@ async def root():
     logger.info("Serving index.html from root endpoint")
     return FileResponse('index.html', media_type='text/html')
 
+@app.get("/manifest.json")
+async def manifest():
+    """Serve PWA manifest"""
+    return FileResponse('manifest.json', media_type='application/json')
+
+@app.get("/sw.js")
+async def service_worker():
+    """Serve service worker"""
+    return FileResponse('sw.js', media_type='application/javascript')
+
 @app.get("/containers")
 async def containers():
     """Get all containers"""

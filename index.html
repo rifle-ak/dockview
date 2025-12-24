@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional Docker container management dashboard with real-time monitoring and automation">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DockView">
+    <link rel="manifest" href="/manifest.json">
     <title>DockView - Container Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -4943,6 +4949,96 @@
 
         // Initialize dark mode
         initializeDarkMode();
+
+        // PWA - Service Worker Registration
+        let deferredPrompt;
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('✓ Service Worker registered:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+
+        // PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Show install button/prompt
+            showInstallPrompt();
+        });
+
+        function showInstallPrompt() {
+            const promptHtml = `
+                <div id="pwa-install-banner" class="fixed bottom-6 right-6 z-50 max-w-sm animate-slideInUp" style="animation: slideInUp 0.5s ease-out;">
+                    <div class="glass p-4 rounded-xl border border-indigo-500/40 shadow-2xl">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-download text-indigo-400 text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-sm mb-1">Install DockView</h4>
+                                <p class="text-xs text-gray-400 mb-3">Add to home screen for quick access</p>
+                                <div class="flex gap-2">
+                                    <button onclick="installPWA()" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition-all text-xs font-semibold">
+                                        <i class="fas fa-plus mr-1"></i>Install
+                                    </button>
+                                    <button onclick="dismissInstallPrompt()" class="px-3 py-1.5 rounded-lg bg-gray-500/20 text-gray-300 border border-gray-500/40 hover:bg-gray-500/30 transition-all text-xs font-semibold">
+                                        Later
+                                    </button>
+                                </div>
+                            </div>
+                            <button onclick="dismissInstallPrompt()" class="text-gray-400 hover:text-gray-200 transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (!document.getElementById('pwa-install-banner')) {
+                document.body.insertAdjacentHTML('beforeend', promptHtml);
+            }
+        }
+
+        async function installPWA() {
+            if (!deferredPrompt) return;
+
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+
+            console.log(`PWA install outcome: ${outcome}`);
+
+            if (outcome === 'accepted') {
+                showToast('✓ App installed successfully!', 'success');
+            }
+
+            deferredPrompt = null;
+            dismissInstallPrompt();
+        }
+
+        function dismissInstallPrompt() {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.remove();
+            }
+        }
+
+        // Detect if running as PWA
+        window.addEventListener('appinstalled', () => {
+            console.log('✓ DockView PWA installed');
+            showToast('🎉 DockView installed as app!', 'success');
+            dismissInstallPrompt();
+        });
+
+        // Check if already running as PWA
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            console.log('✓ Running as PWA');
+        }
     </script>
 
     <!-- Logs Modal -->
