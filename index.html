@@ -1085,6 +1085,11 @@
                     <button id="ai-insights-btn" class="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 transition-all text-sm font-semibold" onclick="openAIInsightsModal()">
                         <i class="fas fa-brain mr-2"></i>AI Insights
                     </button>
+
+                    <!-- Images button -->
+                    <button id="images-btn" class="px-4 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 transition-all text-sm font-semibold" onclick="openImagesModal()">
+                        <i class="fas fa-layer-group mr-2"></i>Images
+                    </button>
                     </div>
                     <div id="stats-summary" class="flex gap-3">
                         <div class="quick-stat-card">
@@ -4087,6 +4092,154 @@
             }
         }
 
+        // Image Management System
+        function openImagesModal() {
+            document.getElementById('images-modal').style.display = 'flex';
+            loadImages();
+        }
+
+        function closeImagesModal() {
+            document.getElementById('images-modal').style.display = 'none';
+        }
+
+        async function loadImages() {
+            const loadingEl = document.getElementById('images-loading');
+            const contentEl = document.getElementById('images-content');
+            const statsEl = document.getElementById('images-stats');
+            const listEl = document.getElementById('images-list');
+
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+
+            try {
+                const response = await fetch('/images');
+                const images = await response.json();
+
+                // Calculate stats
+                const totalImages = images.length;
+                const inUse = images.filter(i => i.containers.length > 0).length;
+                const unused = totalImages - inUse;
+                const totalSize = images.reduce((sum, img) => {
+                    const sizeMatch = img.size.match(/([\d.]+)\s*(B|KB|MB|GB)/);
+                    if (sizeMatch) {
+                        const value = parseFloat(sizeMatch[1]);
+                        const unit = sizeMatch[2];
+                        let bytes = value;
+                        if (unit === 'KB') bytes *= 1024;
+                        else if (unit === 'MB') bytes *= 1024 * 1024;
+                        else if (unit === 'GB') bytes *= 1024 * 1024 * 1024;
+                        return sum + bytes;
+                    }
+                    return sum;
+                }, 0);
+
+                function formatBytes(bytes) {
+                    if (bytes < 1024) return bytes.toFixed(0) + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+                    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                }
+
+                // Render stats
+                statsEl.innerHTML = `
+                    <div class="glass p-4 rounded-xl border border-blue-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-layer-group text-blue-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-400">${totalImages}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">Total Images</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-4 rounded-xl border border-green-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-green-400">${inUse}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">In Use</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-4 rounded-xl border border-gray-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center">
+                                <i class="fas fa-times-circle text-gray-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-gray-400">${unused}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">Unused</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass p-4 rounded-xl border border-purple-500/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-hdd text-purple-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-purple-400">${formatBytes(totalSize)}</div>
+                                <div class="text-xs text-gray-400 uppercase tracking-wide">Total Size</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Render images
+                listEl.innerHTML = images.map(img => `
+                    <div class="glass p-4 rounded-xl border ${img.containers.length > 0 ? 'border-green-500/30' : 'border-gray-500/20'}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start gap-3 flex-1 min-w-0">
+                                <div class="w-10 h-10 rounded-lg ${img.containers.length > 0 ? 'bg-green-500/20' : 'bg-gray-500/20'} flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-layer-group ${img.containers.length > 0 ? 'text-green-400' : 'text-gray-400'}"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-baseline gap-2 mb-1">
+                                        <h3 class="font-bold text-base truncate">${img.repository}</h3>
+                                        <span class="px-2 py-0.5 rounded text-xs font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${img.tag}</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
+                                        <div><i class="fas fa-fingerprint mr-2 text-gray-500"></i><span class="font-semibold">ID:</span> ${img.id}</div>
+                                        <div><i class="fas fa-hdd mr-2 text-gray-500"></i><span class="font-semibold">Size:</span> ${img.size}</div>
+                                        <div><i class="fas fa-clock mr-2 text-gray-500"></i><span class="font-semibold">Created:</span> ${img.created}</div>
+                                        <div><i class="fas fa-cubes mr-2 text-gray-500"></i><span class="font-semibold">Containers:</span> ${img.containers.length}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5 items-end">
+                                <span class="px-3 py-1 rounded-lg text-xs font-semibold ${img.containers.length > 0 ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'}">
+                                    ${img.containers.length > 0 ? `${img.containers.length} container(s)` : 'Unused'}
+                                </span>
+                            </div>
+                        </div>
+                        ${img.containers.length > 0 ? `
+                            <div class="pt-3 mt-3 border-t border-gray-700/30">
+                                <div class="text-xs text-gray-400 mb-2 font-semibold"><i class="fas fa-link mr-2"></i>Used By:</div>
+                                <div class="flex flex-wrap gap-2">
+                                    ${img.containers.map(c => `
+                                        <span class="px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-semibold border border-indigo-500/30">
+                                            <i class="fas fa-${c.status === 'running' ? 'play' : 'stop'}-circle mr-1"></i>${c.name}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading images:', error);
+                listEl.innerHTML = '<p class="text-center text-red-400">Error loading images</p>';
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            }
+        }
+
         // AI Insights System
         function openAIInsightsModal() {
             document.getElementById('ai-insights-modal').style.display = 'flex';
@@ -5644,6 +5797,35 @@
                     </div>
                     <div id="volumes-list" class="space-y-4">
                         <!-- Volumes will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Images Modal -->
+    <div id="images-modal" class="modal">
+        <div class="modal-content" style="width: 95vw; max-width: 1200px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-layer-group mr-3 text-blue-400"></i>
+                    Docker Images
+                </h2>
+                <button class="modal-close ripple" onclick="closeImagesModal()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="images-loading" style="text-align: center; padding: 2rem;">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                    <p class="mt-4 text-gray-400">Loading images...</p>
+                </div>
+                <div id="images-content" style="display: none;">
+                    <div id="images-stats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <!-- Image stats will be inserted here -->
+                    </div>
+                    <div id="images-list" class="space-y-3">
+                        <!-- Images will be inserted here -->
                     </div>
                 </div>
             </div>

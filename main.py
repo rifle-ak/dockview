@@ -639,6 +639,81 @@ async def get_volumes():
         logger.error(f"Error fetching volumes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ===== IMAGES ENDPOINTS =====
+
+@app.get("/images")
+async def get_images():
+    """Get all Docker images"""
+    try:
+        images = client.images.list()
+        image_list = []
+
+        for image in images:
+            # Get tags
+            tags = image.tags if image.tags else ['<none>:<none>']
+
+            # Get size
+            size = format_bytes(image.attrs.get('Size', 0))
+
+            # Get created date
+            created_str = image.attrs.get('Created', '')
+            try:
+                created = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                created_ago = format_time_ago(created)
+            except:
+                created_ago = 'Unknown'
+
+            # Find containers using this image
+            containers_using = []
+            try:
+                all_containers = client.containers.list(all=True)
+                for container in all_containers:
+                    if container.image.id == image.id:
+                        containers_using.append({
+                            'id': container.id[:12],
+                            'name': container.name,
+                            'status': container.status
+                        })
+            except:
+                pass
+
+            for tag in tags:
+                repo, tag_name = tag.split(':', 1) if ':' in tag else (tag, 'latest')
+                image_list.append({
+                    'id': image.id[:12] if hasattr(image, 'id') else 'unknown',
+                    'repository': repo,
+                    'tag': tag_name,
+                    'full_tag': tag,
+                    'size': size,
+                    'created': created_ago,
+                    'containers': containers_using
+                })
+
+        logger.info(f"✓ Found {len(image_list)} Docker images")
+        return image_list
+
+    except Exception as e:
+        logger.error(f"Error fetching images: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def format_time_ago(dt):
+    """Format datetime as 'X days ago' or 'X hours ago'"""
+    now = datetime.now(timezone.utc)
+    diff = now - dt
+
+    days = diff.days
+    hours = diff.seconds // 3600
+    minutes = (diff.seconds % 3600) // 60
+
+    if days > 0:
+        return f"{days} day{'s' if days > 1 else ''} ago"
+    elif hours > 0:
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif minutes > 0:
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "Just now"
+
 # ===== WIDGET ENDPOINTS =====
 
 @app.get("/widgets/all")
