@@ -1335,6 +1335,39 @@
             </div>
         </div>
 
+        <!-- Bulk Actions Toolbar (hidden by default) -->
+        <div id="bulk-actions-toolbar" class="mb-6" style="display: none;">
+            <div class="glass rounded-2xl p-4 border-2 border-indigo-500/30 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="px-3 py-1.5 bg-indigo-500/20 rounded-lg border border-indigo-500/40">
+                            <span class="text-sm font-semibold text-indigo-300">
+                                <i class="fas fa-check-square mr-2"></i>
+                                <span id="selected-count">0</span> selected
+                            </span>
+                        </div>
+                        <button onclick="selectAllContainers()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-600/20 text-gray-300 border border-gray-600/40 hover:bg-gray-600/30 transition-all ripple">
+                            <i class="fas fa-check-double mr-1.5"></i>Select All
+                        </button>
+                        <button onclick="deselectAllContainers()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-600/20 text-gray-300 border border-gray-600/40 hover:bg-gray-600/30 transition-all ripple">
+                            <i class="fas fa-times mr-1.5"></i>Clear
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="bulkStartContainers()" class="px-4 py-2 text-sm font-semibold rounded-lg bg-green-500/20 text-green-300 border border-green-500/40 hover:bg-green-500/30 transition-all ripple">
+                            <i class="fas fa-play mr-2"></i>Start
+                        </button>
+                        <button onclick="bulkStopContainers()" class="px-4 py-2 text-sm font-semibold rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all ripple">
+                            <i class="fas fa-stop mr-2"></i>Stop
+                        </button>
+                        <button onclick="bulkRestartContainers()" class="px-4 py-2 text-sm font-semibold rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 hover:bg-orange-500/30 transition-all ripple">
+                            <i class="fas fa-redo mr-2"></i>Restart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Top 10 Resource Hogs -->
         <div id="resource-hogs" class="mb-12" style="display: none;">
             <div class="glass rounded-3xl p-8 border-2 border-indigo-500/20 shadow-2xl">
@@ -1885,10 +1918,20 @@
                 const isHighUsage = isRunning && (container.cpu > 75 || container.memory > 75);
                 const highUsageClass = isHighUsage ? 'high-usage' : '';
 
+                const isSelected = selectedContainers.has(container.id);
+
                 return `
                     <div class="container-card rounded-2xl p-5 shadow-xl ${isClickable ? 'clickable' : ''} ${highUsageClass}"
-                         style="animation-delay: ${animationDelay}s;"
+                         style="animation-delay: ${animationDelay}s; ${isSelected ? 'border: 2px solid rgba(99, 102, 241, 0.6);' : ''}"
                          ${isClickable ? `onclick="window.open('${serviceUrl}', '_blank')"` : ''}>
+                        <!-- Selection Checkbox -->
+                        <div class="absolute top-3 left-3 z-10">
+                            <input type="checkbox"
+                                   id="select-${container.id}"
+                                   ${isSelected ? 'checked' : ''}
+                                   onclick="event.stopPropagation(); toggleContainerSelection('${container.id}')"
+                                   class="w-5 h-5 rounded border-2 border-indigo-500/50 bg-gray-800/80 text-indigo-500 focus:ring-2 focus:ring-indigo-500/50 cursor-pointer">
+                        </div>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -2082,6 +2125,150 @@
             if (searchInput) searchInput.value = '';
             filterAndRenderContainers();
             showToast('✓ Filters cleared', 'success');
+        }
+
+        // Bulk Actions
+        let selectedContainers = new Set();
+
+        function toggleContainerSelection(id) {
+            if (selectedContainers.has(id)) {
+                selectedContainers.delete(id);
+            } else {
+                selectedContainers.add(id);
+            }
+            updateBulkActionsToolbar();
+            filterAndRenderContainers();  // Re-render to update checkboxes and border
+        }
+
+        function updateBulkActionsToolbar() {
+            const toolbar = document.getElementById('bulk-actions-toolbar');
+            const countEl = document.getElementById('selected-count');
+            const count = selectedContainers.size;
+
+            countEl.textContent = count;
+
+            if (count > 0) {
+                toolbar.style.display = 'block';
+            } else {
+                toolbar.style.display = 'none';
+            }
+        }
+
+        function selectAllContainers() {
+            // Select all currently visible/filtered containers
+            const filtered = getFilteredContainers();
+            filtered.forEach(c => selectedContainers.add(c.id));
+            updateBulkActionsToolbar();
+            filterAndRenderContainers();
+            showToast(`✓ Selected ${filtered.length} containers`, 'success');
+        }
+
+        function deselectAllContainers() {
+            selectedContainers.clear();
+            updateBulkActionsToolbar();
+            filterAndRenderContainers();
+            showToast('✓ Selection cleared', 'success');
+        }
+
+        function getFilteredContainers() {
+            let filtered = allContainers;
+
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(c => c.status === currentFilter);
+            }
+
+            if (searchTerm) {
+                filtered = filtered.filter(c =>
+                    c.name.toLowerCase().includes(searchTerm) ||
+                    c.image.toLowerCase().includes(searchTerm) ||
+                    c.status.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (activeFilter === 'cpu') {
+                filtered = filtered.filter(c => c.cpu > 75);
+            } else if (activeFilter === 'ram') {
+                filtered = filtered.filter(c => c.memory > 75);
+            } else if (activeFilter === 'unhealthy') {
+                filtered = filtered.filter(c => c.cpu > 75 || c.memory > 75 || c.status !== 'running');
+            }
+
+            return filtered;
+        }
+
+        async function bulkStartContainers() {
+            const count = selectedContainers.size;
+            if (count === 0) {
+                showToast('No containers selected', 'warning');
+                return;
+            }
+
+            showToast(`Starting ${count} containers...`, 'info');
+            let succeeded = 0;
+            let failed = 0;
+
+            for (const id of selectedContainers) {
+                try {
+                    await fetch(`/start/${id}`, { method: 'POST' });
+                    succeeded++;
+                } catch (error) {
+                    failed++;
+                }
+            }
+
+            deselectAllContainers();
+            setTimeout(fetchContainers, 1000);
+            showToast(`✓ Started ${succeeded} containers${failed > 0 ? `, ${failed} failed` : ''}`, succeeded > 0 ? 'success' : 'error');
+        }
+
+        async function bulkStopContainers() {
+            const count = selectedContainers.size;
+            if (count === 0) {
+                showToast('No containers selected', 'warning');
+                return;
+            }
+
+            showToast(`Stopping ${count} containers...`, 'info');
+            let succeeded = 0;
+            let failed = 0;
+
+            for (const id of selectedContainers) {
+                try {
+                    await fetch(`/stop/${id}`, { method: 'POST' });
+                    succeeded++;
+                } catch (error) {
+                    failed++;
+                }
+            }
+
+            deselectAllContainers();
+            setTimeout(fetchContainers, 1000);
+            showToast(`✓ Stopped ${succeeded} containers${failed > 0 ? `, ${failed} failed` : ''}`, succeeded > 0 ? 'success' : 'error');
+        }
+
+        async function bulkRestartContainers() {
+            const count = selectedContainers.size;
+            if (count === 0) {
+                showToast('No containers selected', 'warning');
+                return;
+            }
+
+            showToast(`Restarting ${count} containers...`, 'info');
+            let succeeded = 0;
+            let failed = 0;
+
+            for (const id of selectedContainers) {
+                try {
+                    await fetch(`/restart/${id}`, { method: 'POST' });
+                    succeeded++;
+                } catch (error) {
+                    failed++;
+                }
+            }
+
+            deselectAllContainers();
+            setTimeout(fetchContainers, 1000);
+            showToast(`✓ Restarted ${succeeded} containers${failed > 0 ? `, ${failed} failed` : ''}`, succeeded > 0 ? 'success' : 'error');
         }
 
         // Container actions
