@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         :root {
             /* Background Colors */
@@ -924,6 +925,11 @@
                     <!-- Export button -->
                     <button id="export-btn" class="px-4 py-2 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 transition-all text-sm font-semibold" onclick="openExportMenu()">
                         <i class="fas fa-download mr-2"></i>Export
+                    </button>
+
+                    <!-- Network Topology button -->
+                    <button id="network-topology-btn" class="px-4 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all text-sm font-semibold" onclick="openNetworkTopology()">
+                        <i class="fas fa-project-diagram mr-2"></i>Network
                     </button>
                     </div>
                     <div id="stats-summary" class="flex gap-4">
@@ -3173,6 +3179,203 @@
             showToast('✓ Settings exported as JSON', 'success');
         }
 
+        // Network Topology Visualization
+        let networkGraph = null;
+        let networkData = { containers: [], networks: [], devices: [] };
+
+        function openNetworkTopology() {
+            document.getElementById('network-topology-modal').classList.add('active');
+            setTimeout(() => {
+                initNetworkGraph();
+                loadNetworkData();
+            }, 100);
+        }
+
+        function closeNetworkTopology() {
+            document.getElementById('network-topology-modal').classList.remove('active');
+        }
+
+        function initNetworkGraph() {
+            if (networkGraph) return;
+
+            const container = document.getElementById('network-graph');
+            const nodes = new vis.DataSet([]);
+            const edges = new vis.DataSet([]);
+
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 20,
+                    font: {
+                        size: 14,
+                        color: '#e2e8f0'
+                    },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    width: 2,
+                    color: { color: 'rgba(99, 102, 241, 0.4)', highlight: 'rgba(99, 102, 241, 0.8)' },
+                    smooth: {
+                        type: 'continuous'
+                    }
+                },
+                physics: {
+                    forceAtlas2Based: {
+                        gravitationalConstant: -50,
+                        centralGravity: 0.01,
+                        springLength: 200,
+                        springConstant: 0.08
+                    },
+                    maxVelocity: 50,
+                    solver: 'forceAtlas2Based',
+                    timestep: 0.35,
+                    stabilization: { iterations: 150 }
+                },
+                interaction: {
+                    tooltipDelay: 200,
+                    hideEdgesOnDrag: true
+                }
+            };
+
+            networkGraph = new vis.Network(container, data, options);
+
+            // Handle node clicks
+            networkGraph.on('click', function (params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    showNodeInfo(nodeId);
+                }
+            });
+        }
+
+        async function loadNetworkData() {
+            try {
+                // Load Docker containers and networks
+                const dockerData = {
+                    containers: allContainers,
+                    networks: await fetchDockerNetworks()
+                };
+
+                networkData.containers = dockerData.containers;
+                networkData.networks = dockerData.networks;
+
+                updateNetworkView();
+                updateNetworkStats();
+            } catch (error) {
+                console.error('Error loading network data:', error);
+                showToast('Error loading network data', 'error');
+            }
+        }
+
+        async function fetchDockerNetworks() {
+            try {
+                const response = await fetch('/network/topology');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching Docker networks:', error);
+                return [];
+            }
+        }
+
+        async function scanNetwork() {
+            const loading = document.getElementById('network-loading');
+            loading.style.display = 'block';
+            showToast('Scanning network... This may take a minute', 'info');
+
+            try {
+                const response = await fetch('/network/scan');
+                const devices = await response.json();
+                networkData.devices = devices;
+                updateNetworkView();
+                updateNetworkStats();
+                showToast(`✓ Found ${devices.length} network devices`, 'success');
+            } catch (error) {
+                console.error('Error scanning network:', error);
+                showToast('Error scanning network', 'error');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function updateNetworkView() {
+            if (!networkGraph) return;
+
+            const showContainers = document.getElementById('show-containers').checked;
+            const showNetworks = document.getElementById('show-networks').checked;
+            const showDevices = document.getElementById('show-devices').checked;
+
+            const nodes = [];
+            const edges = [];
+
+            // Add Docker networks as nodes
+            if (showNetworks) {
+                networkData.networks.forEach(network => {
+                    nodes.push({
+                        id: `net-${network.id}`,
+                        label: network.name,
+                        color: '#06b6d4',
+                        size: 30,
+                        title: `Network: ${network.name}<br>Driver: ${network.driver}<br>Subnet: ${network.subnet || 'N/A'}`
+                    });
+                });
+            }
+
+            // Add containers as nodes and connect to networks
+            if (showContainers) {
+                networkData.containers.forEach(container => {
+                    const color = container.status === 'running' ? '#10b981' : '#ef4444';
+                    nodes.push({
+                        id: `cont-${container.id}`,
+                        label: container.name,
+                        color: color,
+                        size: 25,
+                        title: `Container: ${container.name}<br>Status: ${container.status}<br>CPU: ${container.cpu}%<br>RAM: ${container.memory}%`
+                    });
+
+                    // Connect container to its networks
+                    if (container.networks && showNetworks) {
+                        container.networks.forEach(netName => {
+                            const netNode = networkData.networks.find(n => n.name === netName);
+                            if (netNode) {
+                                edges.push({
+                                    from: `cont-${container.id}`,
+                                    to: `net-${netNode.id}`
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Add network devices
+            if (showDevices) {
+                networkData.devices.forEach((device, idx) => {
+                    nodes.push({
+                        id: `dev-${idx}`,
+                        label: device.hostname || device.ip,
+                        color: '#a855f7',
+                        size: 20,
+                        title: `Device: ${device.hostname || 'Unknown'}<br>IP: ${device.ip}<br>MAC: ${device.mac || 'N/A'}`
+                    });
+                });
+            }
+
+            networkGraph.setData({ nodes: nodes, edges: edges });
+        }
+
+        function updateNetworkStats() {
+            document.getElementById('topo-containers').textContent = networkData.containers.length;
+            document.getElementById('topo-networks').textContent = networkData.networks.length;
+            document.getElementById('topo-devices').textContent = networkData.devices.length;
+        }
+
+        function showNodeInfo(nodeId) {
+            // This would show detailed info about the clicked node
+            console.log('Node clicked:', nodeId);
+        }
+
         // Monitor container states and send notifications
         function checkContainerAlerts(containers) {
             if (!notificationPreferences.enabled || Notification.permission !== 'granted') {
@@ -4317,6 +4520,96 @@
                         <button onclick="exportSettings()" class="w-full px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 transition-all ripple text-sm font-semibold">
                             <i class="fas fa-file-export mr-2"></i>Export Settings (JSON)
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Topology Modal -->
+    <div id="network-topology-modal" class="modal">
+        <div class="modal-content" style="width: 95vw; max-width: 1400px; height: 90vh;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-project-diagram mr-3"></i>
+                    Network Topology - Home Network Map
+                </h2>
+                <button class="modal-close ripple" onclick="closeNetworkTopology()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body" style="height: calc(90vh - 100px); padding: 0;">
+                <div class="flex h-full">
+                    <!-- Sidebar Controls -->
+                    <div class="w-64 p-4 border-r border-gray-700/50 overflow-y-auto">
+                        <h3 class="text-lg font-bold mb-4 text-cyan-400">
+                            <i class="fas fa-filter mr-2"></i>View Options
+                        </h3>
+
+                        <div class="space-y-3 mb-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="show-containers" checked onchange="updateNetworkView()" class="w-4 h-4 rounded">
+                                <span class="text-sm">Docker Containers</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="show-networks" checked onchange="updateNetworkView()" class="w-4 h-4 rounded">
+                                <span class="text-sm">Docker Networks</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="show-devices" checked onchange="updateNetworkView()" class="w-4 h-4 rounded">
+                                <span class="text-sm">Network Devices</span>
+                            </label>
+                        </div>
+
+                        <button onclick="scanNetwork()" class="w-full px-4 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-all ripple text-sm font-semibold mb-4">
+                            <i class="fas fa-search mr-2"></i>Scan Network
+                        </button>
+
+                        <div id="network-stats" class="space-y-2 text-xs">
+                            <div class="flex justify-between p-2 bg-gray-800/40 rounded">
+                                <span>Containers:</span>
+                                <span id="topo-containers">0</span>
+                            </div>
+                            <div class="flex justify-between p-2 bg-gray-800/40 rounded">
+                                <span>Networks:</span>
+                                <span id="topo-networks">0</span>
+                            </div>
+                            <div class="flex justify-between p-2 bg-gray-800/40 rounded">
+                                <span>Devices:</span>
+                                <span id="topo-devices">0</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <h4 class="text-sm font-bold mb-2 text-gray-400">Legend</h4>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-4 h-4 rounded-full bg-green-500"></div>
+                                    <span>Container (Running)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-4 h-4 rounded-full bg-red-500"></div>
+                                    <span>Container (Stopped)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-4 h-4 rounded-full bg-cyan-500"></div>
+                                    <span>Network</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-4 h-4 rounded-full bg-purple-500"></div>
+                                    <span>Network Device</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network Graph -->
+                    <div class="flex-1 relative">
+                        <div id="network-graph" style="width: 100%; height: 100%; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);"></div>
+                        <div id="network-loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none;">
+                            <div class="spinner" style="margin: 0 auto;"></div>
+                            <p class="mt-4 text-gray-400">Scanning network...</p>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -410,6 +410,117 @@ async def get_container_details(container_id: str):
         logger.error(f"Error fetching details: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ===== NETWORK TOPOLOGY ENDPOINTS =====
+
+@app.get("/network/topology")
+async def get_network_topology():
+    """Get Docker network topology"""
+    try:
+        networks = client.networks.list()
+        topology = []
+
+        for network in networks:
+            net_data = {
+                "id": network.id[:12],
+                "name": network.name,
+                "driver": network.attrs.get('Driver', 'unknown'),
+                "scope": network.attrs.get('Scope', 'unknown'),
+                "subnet": None,
+                "gateway": None,
+                "containers": []
+            }
+
+            # Get IPAM config
+            ipam = network.attrs.get('IPAM', {})
+            if ipam and 'Config' in ipam and ipam['Config']:
+                config = ipam['Config'][0] if ipam['Config'] else {}
+                net_data['subnet'] = config.get('Subnet')
+                net_data['gateway'] = config.get('Gateway')
+
+            # Get connected containers
+            containers_dict = network.attrs.get('Containers', {})
+            for cont_id, cont_info in containers_dict.items():
+                net_data['containers'].append({
+                    "id": cont_id[:12],
+                    "name": cont_info.get('Name', 'unknown'),
+                    "ipv4": cont_info.get('IPv4Address', '').split('/')[0] if cont_info.get('IPv4Address') else None
+                })
+
+            topology.append(net_data)
+
+        return topology
+    except Exception as e:
+        logger.error(f"Error fetching network topology: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/network/scan")
+async def scan_network():
+    """Scan local network for devices using ARP"""
+    try:
+        import subprocess
+        import re
+
+        devices = []
+
+        # Use arp-scan if available, fallback to arp
+        try:
+            # Try arp-scan first (more comprehensive)
+            result = subprocess.run(
+                ['arp-scan', '--localnet', '--quiet'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            # Parse arp-scan output
+            for line in result.stdout.split('\n'):
+                match = re.match(r'(\d+\.\d+\.\d+\.\d+)\s+([\da-f:]+)\s+(.*)', line, re.I)
+                if match:
+                    devices.append({
+                        "ip": match.group(1),
+                        "mac": match.group(2),
+                        "hostname": match.group(3) or None,
+                        "type": "network_device"
+                    })
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Fallback to arp command
+            result = subprocess.run(
+                ['arp', '-a'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Parse arp output (works on Linux and macOS)
+            for line in result.stdout.split('\n'):
+                # Match pattern: hostname (IP) at MAC [ether] on interface
+                match = re.search(r'(?:(\S+)\s+)?\((\d+\.\d+\.\d+\.\d+)\).*?([\da-f:]{11,17})', line, re.I)
+                if match:
+                    devices.append({
+                        "ip": match.group(2),
+                        "mac": match.group(3),
+                        "hostname": match.group(1) if match.group(1) and match.group(1) != '?' else None,
+                        "type": "network_device"
+                    })
+
+        # Try to resolve hostnames for IPs without them
+        for device in devices:
+            if not device.get('hostname'):
+                try:
+                    import socket
+                    hostname = socket.gethostbyaddr(device['ip'])[0]
+                    device['hostname'] = hostname
+                except:
+                    pass
+
+        logger.info(f"✓ Found {len(devices)} network devices")
+        return devices
+
+    except Exception as e:
+        logger.error(f"Error scanning network: {e}")
+        # Return empty list instead of error to avoid breaking the UI
+        return []
+
 # ===== WIDGET ENDPOINTS =====
 
 @app.get("/widgets/all")
