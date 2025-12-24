@@ -527,6 +527,43 @@
             animation: glow 1s infinite;
         }
 
+        /* Docker Health Check badges */
+        .health-check-badge {
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: all 0.3s ease;
+        }
+
+        .health-check-healthy {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .health-check-unhealthy {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        .health-check-starting {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .health-check-badge:hover {
+            transform: scale(1.1);
+        }
+
         .health-low {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
@@ -2226,6 +2263,12 @@
                                 ${isRunning ? `
                                     <span class="health-badge health-${cpuClass}" title="System Health: CPU ${container.cpu.toFixed(1)}% • RAM ${container.memory.toFixed(1)}%">
                                         <i class="fas fa-heartbeat"></i>
+                                    </span>
+                                ` : ''}
+                                ${container.health ? `
+                                    <span class="health-check-badge health-check-${container.health}" title="Docker Health Check: ${container.health}">
+                                        <i class="fas ${container.health === 'healthy' ? 'fa-check-circle' : container.health === 'unhealthy' ? 'fa-times-circle' : 'fa-clock'}"></i>
+                                        ${container.health}
                                     </span>
                                 ` : ''}
                             </div>

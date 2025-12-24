@@ -271,6 +271,11 @@ def process_container(c):
                     for binding in bindings:
                         ports.append(f"{binding['HostPort']}:{port}")
 
+        # Get health check status
+        health_status = None
+        if c.attrs.get('State', {}).get('Health'):
+            health_status = c.attrs['State']['Health'].get('Status', 'unknown')
+
         return {
             "id": c.id[:12],
             "name": c.name,
@@ -282,7 +287,8 @@ def process_container(c):
             "memory_text": memory_text,
             "appType": app_type,
             "image": image,
-            "ports": ports
+            "ports": ports,
+            "health": health_status
         }
     except Exception as e:
         logger.error(f"Error processing container {c.name}: {e}")
