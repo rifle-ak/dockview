@@ -225,6 +225,37 @@
             transform: rotate(72deg);
         }
 
+        .notes-button {
+            background: rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .notes-button:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.1);
+        }
+
+        .notes-button.has-note {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .notes-button i {
+            transition: all 0.3s ease;
+        }
+
+        .notes-button:hover i {
+            transform: scale(1.2);
+        }
+
         .quick-stat-card {
             display: flex;
             align-items: center;
@@ -2130,6 +2161,12 @@
                                    onclick="event.stopPropagation(); toggleContainerSelection('${container.id}')"
                                    class="w-5 h-5 rounded border-2 border-indigo-500/50 bg-gray-800/80 text-indigo-500 focus:ring-2 focus:ring-indigo-500/50 cursor-pointer">
                         </div>
+                        <!-- Notes Button -->
+                        <button class="absolute top-3 right-14 z-10 notes-button ${containerNotes[container.id] ? 'has-note' : ''}"
+                                onclick="event.stopPropagation(); openNotesModal('${container.id}', '${container.name.replace(/'/g, "\\'")}')"
+                                title="${containerNotes[container.id] ? 'Edit note' : 'Add note'}">
+                            <i class="fas fa-sticky-note ${containerNotes[container.id] ? 'text-blue-400' : 'text-gray-600'}" style="font-size: 1.1rem;"></i>
+                        </button>
                         <!-- Favorite Star -->
                         <button class="absolute top-3 right-3 z-10 favorite-star"
                                 onclick="event.stopPropagation(); toggleFavorite('${container.id}')"
@@ -2502,6 +2539,63 @@
             }
             saveFavorites();
             filterAndRenderContainers();  // Re-render to update star and sorting
+        }
+
+        // Container Notes System
+        let containerNotes = {};
+        let currentNoteContainerId = null;
+
+        function loadNotes() {
+            const saved = localStorage.getItem('dockview-notes');
+            if (saved) {
+                containerNotes = JSON.parse(saved);
+            }
+        }
+
+        function saveNotes() {
+            localStorage.setItem('dockview-notes', JSON.stringify(containerNotes));
+        }
+
+        function openNotesModal(containerId, containerName) {
+            currentNoteContainerId = containerId;
+            document.getElementById('notes-container-name').textContent = containerName;
+            document.getElementById('notes-textarea').value = containerNotes[containerId] || '';
+            document.getElementById('notes-modal').style.display = 'flex';
+        }
+
+        function closeNotesModal() {
+            document.getElementById('notes-modal').style.display = 'none';
+            currentNoteContainerId = null;
+        }
+
+        function saveNote() {
+            if (!currentNoteContainerId) return;
+
+            const noteText = document.getElementById('notes-textarea').value.trim();
+
+            if (noteText) {
+                containerNotes[currentNoteContainerId] = noteText;
+                showToast('📝 Note saved successfully', 'success');
+            } else {
+                delete containerNotes[currentNoteContainerId];
+                showToast('Note removed', 'info');
+            }
+
+            saveNotes();
+            filterAndRenderContainers();  // Re-render to update notes button
+            closeNotesModal();
+        }
+
+        function deleteNote() {
+            if (!currentNoteContainerId) return;
+
+            if (containerNotes[currentNoteContainerId]) {
+                delete containerNotes[currentNoteContainerId];
+                saveNotes();
+                showToast('Note deleted', 'info');
+                filterAndRenderContainers();  // Re-render to update notes button
+                closeNotesModal();
+            }
         }
 
         // Container actions
@@ -3169,7 +3263,7 @@
         }
 
         function exportContainersCSV() {
-            const headers = ['Name', 'Status', 'Image', 'CPU (%)', 'Memory (%)', 'Memory Text', 'Uptime', 'App Type', 'Favorite'];
+            const headers = ['Name', 'Status', 'Image', 'CPU (%)', 'Memory (%)', 'Memory Text', 'Uptime', 'App Type', 'Favorite', 'Notes'];
             const rows = allContainers.map(c => [
                 c.name,
                 c.status,
@@ -3179,7 +3273,8 @@
                 c.memory_text || 'N/A',
                 c.uptime || 'N/A',
                 c.appType || 'unknown',
-                favoriteContainers.has(c.id) ? 'Yes' : 'No'
+                favoriteContainers.has(c.id) ? 'Yes' : 'No',
+                containerNotes[c.id] || ''
             ]);
 
             const csv = [
@@ -3206,7 +3301,8 @@
                     memory_text: c.memory_text,
                     uptime: c.uptime,
                     app_type: c.appType,
-                    is_favorite: favoriteContainers.has(c.id)
+                    is_favorite: favoriteContainers.has(c.id),
+                    notes: containerNotes[c.id] || null
                 }))
             };
 
@@ -3265,8 +3361,10 @@
             const settings = {
                 exported_at: new Date().toISOString(),
                 theme: localStorage.getItem('dockview-theme') || 'default',
+                theme_mode: localStorage.getItem('dockview-theme-mode') || 'dark',
                 view_mode: localStorage.getItem('dockview-viewmode') || 'grouped',
                 favorites: JSON.parse(localStorage.getItem('dockview-favorites') || '[]'),
+                notes: JSON.parse(localStorage.getItem('dockview-notes') || '{}'),
                 notifications: JSON.parse(localStorage.getItem('dockview-notifications') || '{}')
             };
 
@@ -4331,6 +4429,9 @@
         // Load favorites
         loadFavorites();
 
+        // Load notes
+        loadNotes();
+
         // Initialize dark mode
         initializeDarkMode();
     </script>
@@ -4375,6 +4476,42 @@
                     <p class="mt-4 text-gray-400">Loading details...</p>
                 </div>
                 <div id="details-content" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="modal">
+        <div class="modal-content" style="width: 600px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-sticky-note mr-3 text-blue-400"></i>
+                    Container Notes: <span id="notes-container-name"></span>
+                </h2>
+                <button class="modal-close ripple" onclick="closeNotesModal()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-4">
+                    <div>
+                        <label for="notes-textarea" class="block text-sm font-semibold text-gray-300 mb-2">
+                            <i class="fas fa-edit mr-2"></i>Add your notes or annotations:
+                        </label>
+                        <textarea id="notes-textarea"
+                                  rows="8"
+                                  placeholder="Add notes about this container... (e.g., configuration details, troubleshooting tips, maintenance reminders)"
+                                  class="w-full px-4 py-3 rounded-xl bg-gray-800/60 border border-gray-600/40 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 resize-vertical"></textarea>
+                    </div>
+                    <div class="flex gap-3 justify-end">
+                        <button onclick="deleteNote()" class="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 transition-all ripple text-sm font-semibold">
+                            <i class="fas fa-trash mr-2"></i>Delete Note
+                        </button>
+                        <button onclick="saveNote()" class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 transition-all ripple text-sm font-semibold">
+                            <i class="fas fa-save mr-2"></i>Save Note
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
