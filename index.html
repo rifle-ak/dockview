@@ -1080,6 +1080,11 @@
                     <button id="automation-btn" class="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/40 transition-all text-sm font-semibold" onclick="openAutomationModal()">
                         <i class="fas fa-robot mr-2"></i>Automation
                     </button>
+
+                    <!-- AI Insights button -->
+                    <button id="ai-insights-btn" class="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 transition-all text-sm font-semibold" onclick="openAIInsightsModal()">
+                        <i class="fas fa-brain mr-2"></i>AI Insights
+                    </button>
                     </div>
                     <div id="stats-summary" class="flex gap-3">
                         <div class="quick-stat-card">
@@ -4082,6 +4087,219 @@
             }
         }
 
+        // AI Insights System
+        function openAIInsightsModal() {
+            document.getElementById('ai-insights-modal').style.display = 'flex';
+            generateAIInsights();
+        }
+
+        function closeAIInsightsModal() {
+            document.getElementById('ai-insights-modal').style.display = 'none';
+        }
+
+        function generateAIInsights() {
+            const insights = analyzeContainers(allContainers);
+            renderInsights(insights);
+        }
+
+        function analyzeContainers(containers) {
+            const insights = {
+                critical: [],
+                warnings: [],
+                optimizations: [],
+                predictions: []
+            };
+
+            const running = containers.filter(c => c.status === 'running');
+
+            // Analyze each container
+            running.forEach(container => {
+                // Critical: Very high resource usage
+                if (container.cpu > 90) {
+                    insights.critical.push({
+                        type: 'high_cpu',
+                        container: container.name,
+                        message: `Critical CPU usage (${container.cpu.toFixed(1)}%)`,
+                        recommendation: 'Consider scaling horizontally or optimizing the application'
+                    });
+                }
+                if (container.memory > 90) {
+                    insights.critical.push({
+                        type: 'high_memory',
+                        container: container.name,
+                        message: `Critical memory usage (${container.memory.toFixed(1)}%)`,
+                        recommendation: 'Increase memory limits or investigate memory leaks'
+                    });
+                }
+
+                // Warnings: Moderate resource usage
+                if (container.cpu > 70 && container.cpu <= 90) {
+                    insights.warnings.push({
+                        type: 'elevated_cpu',
+                        container: container.name,
+                        message: `Elevated CPU usage (${container.cpu.toFixed(1)}%)`,
+                        recommendation: 'Monitor for sustained high usage patterns'
+                    });
+                }
+
+                // Optimization: Underutilized resources
+                if (container.cpu < 5 && container.memory < 10) {
+                    insights.optimizations.push({
+                        type: 'underutilized',
+                        container: container.name,
+                        message: `Low resource usage (CPU: ${container.cpu.toFixed(1)}%, RAM: ${container.memory.toFixed(1)}%)`,
+                        recommendation: 'Consider reducing resource limits to save capacity'
+                    });
+                }
+
+                // Network anomalies
+                const totalNetwork = (container.network_rx || 0) + (container.network_tx || 0);
+                if (totalNetwork > 10 * 1024 * 1024 * 1024) {  // 10GB
+                    insights.warnings.push({
+                        type: 'high_network',
+                        container: container.name,
+                        message: `High network traffic (RX: ${container.network_rx_text}, TX: ${container.network_tx_text})`,
+                        recommendation: 'Review network configuration and data transfer patterns'
+                    });
+                }
+            });
+
+            // Global predictions
+            const avgCpu = running.reduce((sum, c) => sum + c.cpu, 0) / running.length;
+            const avgMem = running.reduce((sum, c) => sum + c.memory, 0) / running.length;
+
+            if (avgCpu > 60) {
+                insights.predictions.push({
+                    type: 'capacity_warning',
+                    message: `Average CPU usage is ${avgCpu.toFixed(1)}%`,
+                    recommendation: 'System may need additional capacity soon. Consider infrastructure scaling.'
+                });
+            }
+
+            // Health check insights
+            const unhealthy = containers.filter(c => c.health === 'unhealthy');
+            if (unhealthy.length > 0) {
+                insights.critical.push({
+                    type: 'unhealthy_containers',
+                    container: unhealthy.map(c => c.name).join(', '),
+                    message: `${unhealthy.length} container(s) failing health checks`,
+                    recommendation: 'Investigate container health and logs immediately'
+                });
+            }
+
+            return insights;
+        }
+
+        function renderInsights(insights) {
+            const content = document.getElementById('ai-insights-content');
+            let html = '';
+
+            // Critical issues
+            if (insights.critical.length > 0) {
+                html += `
+                    <div class="glass p-5 rounded-xl border border-red-500/40">
+                        <h3 class="text-lg font-bold text-red-400 mb-3">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Critical Issues (${insights.critical.length})
+                        </h3>
+                        <div class="space-y-3">
+                            ${insights.critical.map(i => `
+                                <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                                    <div class="font-semibold text-red-300 mb-1">
+                                        <i class="fas fa-cube mr-2"></i>${i.container || 'System'}
+                                    </div>
+                                    <div class="text-sm text-gray-300 mb-2">${i.message}</div>
+                                    <div class="text-xs text-gray-400">
+                                        <i class="fas fa-lightbulb mr-1 text-yellow-400"></i>${i.recommendation}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Warnings
+            if (insights.warnings.length > 0) {
+                html += `
+                    <div class="glass p-5 rounded-xl border border-yellow-500/40">
+                        <h3 class="text-lg font-bold text-yellow-400 mb-3">
+                            <i class="fas fa-exclamation-circle mr-2"></i>Warnings (${insights.warnings.length})
+                        </h3>
+                        <div class="space-y-3">
+                            ${insights.warnings.map(i => `
+                                <div class="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                                    <div class="font-semibold text-yellow-300 mb-1">
+                                        <i class="fas fa-cube mr-2"></i>${i.container}
+                                    </div>
+                                    <div class="text-sm text-gray-300 mb-2">${i.message}</div>
+                                    <div class="text-xs text-gray-400">
+                                        <i class="fas fa-lightbulb mr-1 text-yellow-400"></i>${i.recommendation}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Optimizations
+            if (insights.optimizations.length > 0) {
+                html += `
+                    <div class="glass p-5 rounded-xl border border-blue-500/40">
+                        <h3 class="text-lg font-bold text-blue-400 mb-3">
+                            <i class="fas fa-chart-line mr-2"></i>Optimization Opportunities (${insights.optimizations.length})
+                        </h3>
+                        <div class="space-y-3">
+                            ${insights.optimizations.map(i => `
+                                <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                                    <div class="font-semibold text-blue-300 mb-1">
+                                        <i class="fas fa-cube mr-2"></i>${i.container}
+                                    </div>
+                                    <div class="text-sm text-gray-300 mb-2">${i.message}</div>
+                                    <div class="text-xs text-gray-400">
+                                        <i class="fas fa-lightbulb mr-1 text-blue-400"></i>${i.recommendation}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Predictions
+            if (insights.predictions.length > 0) {
+                html += `
+                    <div class="glass p-5 rounded-xl border border-emerald-500/40">
+                        <h3 class="text-lg font-bold text-emerald-400 mb-3">
+                            <i class="fas fa-crystal-ball mr-2"></i>Predictions & Trends
+                        </h3>
+                        <div class="space-y-3">
+                            ${insights.predictions.map(i => `
+                                <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                                    <div class="text-sm text-gray-300 mb-2">${i.message}</div>
+                                    <div class="text-xs text-gray-400">
+                                        <i class="fas fa-lightbulb mr-1 text-emerald-400"></i>${i.recommendation}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (html === '') {
+                html = `
+                    <div class="glass p-8 rounded-xl border border-green-500/40 text-center">
+                        <i class="fas fa-check-circle text-green-400 text-4xl mb-3"></i>
+                        <h3 class="text-xl font-bold text-green-400 mb-2">All Systems Healthy!</h3>
+                        <p class="text-gray-400">No issues or optimization opportunities detected.</p>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html;
+        }
+
         // Monitor container states and send notifications
         function checkContainerAlerts(containers) {
             if (!notificationPreferences.enabled || Notification.permission !== 'granted') {
@@ -5427,6 +5645,26 @@
                     <div id="volumes-list" class="space-y-4">
                         <!-- Volumes will be inserted here -->
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Insights Modal -->
+    <div id="ai-insights-modal" class="modal">
+        <div class="modal-content" style="width: 90vw; max-width: 1100px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-brain mr-3 text-emerald-400"></i>
+                    AI-Powered Insights
+                </h2>
+                <button class="modal-close ripple" onclick="closeAIInsightsModal()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="ai-insights-content" class="space-y-4">
+                    <!-- Insights will be generated here -->
                 </div>
             </div>
         </div>
