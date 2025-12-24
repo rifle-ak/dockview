@@ -1069,6 +1069,11 @@
                     <button id="volumes-btn" class="px-4 py-2 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 transition-all text-sm font-semibold" onclick="openVolumesModal()">
                         <i class="fas fa-database mr-2"></i>Volumes
                     </button>
+
+                    <!-- Automation button -->
+                    <button id="automation-btn" class="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/40 transition-all text-sm font-semibold" onclick="openAutomationModal()">
+                        <i class="fas fa-robot mr-2"></i>Automation
+                    </button>
                     </div>
                     <div id="stats-summary" class="flex gap-3">
                         <div class="quick-stat-card">
@@ -1884,6 +1889,9 @@
 
                 // Check for container alerts/notifications
                 checkContainerAlerts(allContainers);
+
+                // Execute automation rules
+                executeAutomationRules(allContainers);
 
                 // Record stats for history charts
                 recordStats(allContainers);
@@ -3801,6 +3809,226 @@
             }
         }
 
+        // Automation System
+        let automationRules = [];
+        let currentEditingRuleId = null;
+
+        function loadAutomationRules() {
+            const saved = localStorage.getItem('dockview-automation');
+            if (saved) {
+                automationRules = JSON.parse(saved);
+            }
+        }
+
+        function saveAutomationRules() {
+            localStorage.setItem('dockview-automation', JSON.stringify(automationRules));
+        }
+
+        function openAutomationModal() {
+            document.getElementById('automation-modal').style.display = 'flex';
+            refreshRulesList();
+            populateContainerSelect();
+        }
+
+        function closeAutomationModal() {
+            document.getElementById('automation-modal').style.display = 'none';
+            cancelRuleEdit();
+        }
+
+        function populateContainerSelect() {
+            const select = document.getElementById('rule-container');
+            select.innerHTML = '<option value="">All containers</option>';
+            allContainers.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+
+        function addNewRule() {
+            currentEditingRuleId = null;
+            document.getElementById('rule-form-title').textContent = 'New Automation Rule';
+            document.getElementById('rule-name').value = '';
+            document.getElementById('rule-container').value = '';
+            document.getElementById('rule-trigger').value = 'stopped';
+            document.getElementById('rule-action').value = 'restart';
+            document.getElementById('automation-rule-form').style.display = 'block';
+        }
+
+        function cancelRuleEdit() {
+            currentEditingRuleId = null;
+            document.getElementById('automation-rule-form').style.display = 'none';
+        }
+
+        function saveAutomationRule() {
+            const name = document.getElementById('rule-name').value.trim();
+            const containerId = document.getElementById('rule-container').value;
+            const trigger = document.getElementById('rule-trigger').value;
+            const action = document.getElementById('rule-action').value;
+
+            if (!name) {
+                showToast('Please enter a rule name', 'error');
+                return;
+            }
+
+            const rule = {
+                id: currentEditingRuleId || Date.now().toString(),
+                name: name,
+                containerId: containerId,
+                containerName: containerId ? allContainers.find(c => c.id === containerId)?.name : 'All containers',
+                trigger: trigger,
+                action: action,
+                enabled: true,
+                lastTriggered: null
+            };
+
+            if (currentEditingRuleId) {
+                const index = automationRules.findIndex(r => r.id === currentEditingRuleId);
+                automationRules[index] = rule;
+                showToast('Automation rule updated', 'success');
+            } else {
+                automationRules.push(rule);
+                showToast('🤖 Automation rule created', 'success');
+            }
+
+            saveAutomationRules();
+            refreshRulesList();
+            cancelRuleEdit();
+        }
+
+        function deleteRule(ruleId) {
+            if (confirm('Are you sure you want to delete this automation rule?')) {
+                automationRules = automationRules.filter(r => r.id !== ruleId);
+                saveAutomationRules();
+                refreshRulesList();
+                showToast('Automation rule deleted', 'info');
+            }
+        }
+
+        function toggleRuleEnabled(ruleId) {
+            const rule = automationRules.find(r => r.id === ruleId);
+            if (rule) {
+                rule.enabled = !rule.enabled;
+                saveAutomationRules();
+                refreshRulesList();
+                showToast(rule.enabled ? '✓ Rule enabled' : 'Rule disabled', rule.enabled ? 'success' : 'info');
+            }
+        }
+
+        function refreshRulesList() {
+            const listEl = document.getElementById('automation-rules-list');
+
+            if (automationRules.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-gray-400 py-8">No automation rules configured. Click "Add Rule" to create one.</p>';
+                return;
+            }
+
+            listEl.innerHTML = automationRules.map(rule => {
+                const triggerText = {
+                    'stopped': 'Container stops',
+                    'high_cpu': 'High CPU (>80%)',
+                    'high_memory': 'High RAM (>80%)',
+                    'unhealthy': 'Health check fails'
+                }[rule.trigger] || rule.trigger;
+
+                const actionText = {
+                    'restart': 'Restart container',
+                    'notify': 'Send notification',
+                    'restart_notify': 'Restart + Notify'
+                }[rule.action] || rule.action;
+
+                return `
+                    <div class="glass p-4 rounded-lg border ${rule.enabled ? 'border-violet-500/30' : 'border-gray-500/30'}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start gap-3 flex-1">
+                                <div class="w-10 h-10 rounded-lg ${rule.enabled ? 'bg-violet-500/20' : 'bg-gray-500/20'} flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-robot ${rule.enabled ? 'text-violet-400' : 'text-gray-400'}"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-base mb-1">${rule.name}</h4>
+                                    <div class="text-xs text-gray-400 space-y-1">
+                                        <div><i class="fas fa-cube mr-2"></i><span class="font-semibold">Container:</span> ${rule.containerName || 'All'}</div>
+                                        <div><i class="fas fa-bolt mr-2"></i><span class="font-semibold">When:</span> ${triggerText}</div>
+                                        <div><i class="fas fa-cog mr-2"></i><span class="font-semibold">Then:</span> ${actionText}</div>
+                                        ${rule.lastTriggered ? `<div><i class="fas fa-clock mr-2"></i>Last triggered: ${new Date(rule.lastTriggered).toLocaleString()}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="toggleRuleEnabled('${rule.id}')" class="px-3 py-1 rounded text-xs font-semibold ${rule.enabled ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'} hover:scale-105 transition-all">
+                                    <i class="fas fa-${rule.enabled ? 'check' : 'times'} mr-1"></i>${rule.enabled ? 'Active' : 'Disabled'}
+                                </button>
+                                <button onclick="deleteRule('${rule.id}')" class="px-3 py-1 rounded text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 transition-all">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function executeAutomationRules(containers) {
+            if (automationRules.length === 0) return;
+
+            automationRules.filter(r => r.enabled).forEach(rule => {
+                const targets = rule.containerId ? containers.filter(c => c.id === rule.containerId) : containers;
+
+                targets.forEach(container => {
+                    let shouldTrigger = false;
+
+                    switch (rule.trigger) {
+                        case 'stopped':
+                            shouldTrigger = container.status === 'exited';
+                            break;
+                        case 'high_cpu':
+                            shouldTrigger = container.status === 'running' && container.cpu > 80;
+                            break;
+                        case 'high_memory':
+                            shouldTrigger = container.status === 'running' && container.memory > 80;
+                            break;
+                        case 'unhealthy':
+                            shouldTrigger = container.health === 'unhealthy';
+                            break;
+                    }
+
+                    if (shouldTrigger) {
+                        executeAutomationAction(rule, container);
+                    }
+                });
+            });
+        }
+
+        async function executeAutomationAction(rule, container) {
+            const now = Date.now();
+
+            // Prevent duplicate triggers within 5 minutes
+            if (rule.lastTriggered && (now - rule.lastTriggered) < 300000) {
+                return;
+            }
+
+            rule.lastTriggered = now;
+            saveAutomationRules();
+
+            const actions = rule.action.split('_');
+
+            for (const action of actions) {
+                if (action === 'restart' && container.status !== 'running') {
+                    try {
+                        await fetch(`/restart/${container.id}`, { method: 'POST' });
+                        showToast(`🤖 Auto-restarted ${container.name}`, 'info');
+                    } catch (error) {
+                        console.error('Automation restart failed:', error);
+                    }
+                }
+
+                if (action === 'notify' && Notification.permission === 'granted') {
+                    new Notification('DockView Automation', {
+                        body: `Rule "${rule.name}" triggered for ${container.name}`,
+                        icon: '/favicon.ico'
+                    });
+                }
+            }
+        }
+
         // Monitor container states and send notifications
         function checkContainerAlerts(containers) {
             if (!notificationPreferences.enabled || Notification.permission !== 'granted') {
@@ -4663,6 +4891,9 @@
         // Load notes
         loadNotes();
 
+        // Load automation rules
+        loadAutomationRules();
+
         // Initialize dark mode
         initializeDarkMode();
     </script>
@@ -5052,6 +5283,83 @@
                     </div>
                     <div id="volumes-list" class="space-y-4">
                         <!-- Volumes will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Automation Modal -->
+    <div id="automation-modal" class="modal">
+        <div class="modal-content" style="width: 90vw; max-width: 1000px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-robot mr-3 text-violet-400"></i>
+                    Container Automation
+                </h2>
+                <button class="modal-close ripple" onclick="closeAutomationModal()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-6">
+                    <!-- Active Rules -->
+                    <div class="glass p-5 rounded-xl border border-violet-500/30">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-violet-400">
+                                <i class="fas fa-list-check mr-2"></i>Active Automation Rules
+                            </h3>
+                            <button onclick="addNewRule()" class="px-4 py-2 rounded-lg bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 transition-all ripple text-sm font-semibold">
+                                <i class="fas fa-plus mr-2"></i>Add Rule
+                            </button>
+                        </div>
+                        <div id="automation-rules-list" class="space-y-3">
+                            <!-- Rules will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Add/Edit Rule Form -->
+                    <div id="automation-rule-form" class="glass p-5 rounded-xl border border-indigo-500/30" style="display: none;">
+                        <h3 class="text-lg font-bold text-indigo-400 mb-4">
+                            <i class="fas fa-wand-magic-sparkles mr-2"></i><span id="rule-form-title">New Automation Rule</span>
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-2">Rule Name</label>
+                                <input type="text" id="rule-name" placeholder="e.g., Auto-restart on failure" class="w-full px-4 py-2 rounded-lg bg-gray-800/60 border border-gray-600/40 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-2">Container</label>
+                                <select id="rule-container" class="w-full px-4 py-2 rounded-lg bg-gray-800/60 border border-gray-600/40 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                                    <option value="">Select container...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-2">Trigger Condition</label>
+                                <select id="rule-trigger" class="w-full px-4 py-2 rounded-lg bg-gray-800/60 border border-gray-600/40 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                                    <option value="stopped">Container stops</option>
+                                    <option value="high_cpu">High CPU usage (>80%)</option>
+                                    <option value="high_memory">High memory usage (>80%)</option>
+                                    <option value="unhealthy">Health check fails</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-2">Action</label>
+                                <select id="rule-action" class="w-full px-4 py-2 rounded-lg bg-gray-800/60 border border-gray-600/40 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                                    <option value="restart">Restart container</option>
+                                    <option value="notify">Send notification</option>
+                                    <option value="restart_notify">Restart + Notify</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-3 justify-end">
+                                <button onclick="cancelRuleEdit()" class="px-4 py-2 rounded-lg bg-gray-500/20 text-gray-300 border border-gray-500/40 hover:bg-gray-500/30 transition-all ripple text-sm font-semibold">
+                                    Cancel
+                                </button>
+                                <button onclick="saveAutomationRule()" class="px-4 py-2 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-500/30 transition-all ripple text-sm font-semibold">
+                                    <i class="fas fa-save mr-2"></i>Save Rule
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
