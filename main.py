@@ -252,10 +252,20 @@ def process_container(c):
             memory_usage = stats['memory_stats'].get('usage', 0)
             memory_limit = stats['memory_stats'].get('limit', 0)
             memory_text = f"{format_bytes(memory_usage)} / {format_bytes(memory_limit)}"
+
+            # Extract network I/O stats
+            network_stats = stats.get('networks', {})
+            network_rx = 0
+            network_tx = 0
+            for interface, data in network_stats.items():
+                network_rx += data.get('rx_bytes', 0)
+                network_tx += data.get('tx_bytes', 0)
         else:
             cpu = 0.0
             memory = 0.0
             memory_text = "N/A"
+            network_rx = 0
+            network_tx = 0
 
         # Get image name
         image = c.image.tags[0] if c.image.tags else c.attrs['Config']['Image']
@@ -308,7 +318,11 @@ def process_container(c):
             "ports": ports,
             "health": health_status,
             "cpu_limit": cpu_limit,
-            "memory_limit": memory_limit
+            "memory_limit": memory_limit,
+            "network_rx": network_rx,
+            "network_tx": network_tx,
+            "network_rx_text": format_bytes(network_rx),
+            "network_tx_text": format_bytes(network_tx)
         }
     except Exception as e:
         logger.error(f"Error processing container {c.name}: {e}")

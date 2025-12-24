@@ -1103,6 +1103,24 @@
                                 <div class="quick-stat-label">Total RAM</div>
                             </div>
                         </div>
+                        <div class="quick-stat-card">
+                            <div class="quick-stat-icon bg-cyan-500/20">
+                                <i class="fas fa-arrow-down text-cyan-400"></i>
+                            </div>
+                            <div>
+                                <div class="quick-stat-value" id="quick-network-rx">0 B</div>
+                                <div class="quick-stat-label">Network RX</div>
+                            </div>
+                        </div>
+                        <div class="quick-stat-card">
+                            <div class="quick-stat-icon bg-pink-500/20">
+                                <i class="fas fa-arrow-up text-pink-400"></i>
+                            </div>
+                            <div>
+                                <div class="quick-stat-value" id="quick-network-tx">0 B</div>
+                                <div class="quick-stat-label">Network TX</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1910,13 +1928,18 @@
             const running = allContainers.filter(c => c.status === 'running').length;
             const stopped = allContainers.filter(c => c.status !== 'running').length;
 
-            // Calculate aggregate CPU and RAM for running containers
+            // Calculate aggregate CPU, RAM, and Network I/O for running containers
             let totalCpu = 0;
             let totalRam = 0;
+            let totalNetworkRx = 0;
+            let totalNetworkTx = 0;
             const runningContainers = allContainers.filter(c => c.status === 'running');
 
             runningContainers.forEach(container => {
                 totalCpu += container.cpu || 0;
+                totalNetworkRx += container.network_rx || 0;
+                totalNetworkTx += container.network_tx || 0;
+
                 // Convert memory from string like "150.2 MB / 4.0 GB" to GB
                 if (container.memory_text && container.memory_text !== 'N/A') {
                     const memStr = container.memory_text.split('/')[0].trim(); // Get just the used portion
@@ -1932,6 +1955,14 @@
                     }
                 }
             });
+
+            // Format network I/O
+            function formatNetworkBytes(bytes) {
+                if (bytes < 1024) return bytes.toFixed(0) + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+                return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+            }
 
             // Update the stats summary bar with animations
             animateNumber(document.getElementById('stat-total-containers'), 0, total, 1200);
@@ -1968,6 +1999,8 @@
             document.getElementById('quick-running').textContent = running;
             document.getElementById('quick-cpu').textContent = totalCpu.toFixed(1) + '%';
             document.getElementById('quick-ram').textContent = totalRam.toFixed(1) + ' GB';
+            document.getElementById('quick-network-rx').textContent = formatNetworkBytes(totalNetworkRx);
+            document.getElementById('quick-network-tx').textContent = formatNetworkBytes(totalNetworkTx);
 
             console.log(`📊 Stats: ${total} total, ${running} running, ${stopped} stopped, CPU: ${totalCpu.toFixed(1)}%, RAM: ${totalRam.toFixed(1)} GB`);
         }
@@ -2316,6 +2349,20 @@
                                         <div class="progress-bar ${memClass}" style="width: ${Math.min(container.memory, 100)}%"></div>
                                     </div>
                                     <div class="text-xs text-gray-500 mt-0.5">${container.memory_text}</div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                        <span><i class="fas fa-arrow-down mr-1.5"></i>Network RX</span>
+                                        <span class="font-semibold text-gray-300">${container.network_rx_text || 'N/A'}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                        <span><i class="fas fa-arrow-up mr-1.5"></i>Network TX</span>
+                                        <span class="font-semibold text-gray-300">${container.network_tx_text || 'N/A'}</span>
+                                    </div>
                                 </div>
                             ` : ''}
                         </div>
