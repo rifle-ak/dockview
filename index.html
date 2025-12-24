@@ -178,6 +178,33 @@
             box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
         }
 
+        .favorite-star {
+            background: rgba(0, 0, 0, 0.3);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .favorite-star:hover {
+            background: rgba(251, 191, 36, 0.2);
+            transform: scale(1.1);
+        }
+
+        .favorite-star i {
+            transition: all 0.3s ease;
+        }
+
+        .favorite-star:hover i {
+            transform: rotate(72deg);
+        }
+
         .logs-container {
             background: #0a0e1a;
             border: 1px solid rgba(99, 102, 241, 0.2);
@@ -1873,15 +1900,27 @@
             containerGrid.style.display = 'grid';
             emptyState.style.display = 'none';
 
+            // Sort containers: favorites first, then by name
+            const sortedContainers = [...containers].sort((a, b) => {
+                const aFav = favoriteContainers.has(a.id) ? 0 : 1;
+                const bFav = favoriteContainers.has(b.id) ? 0 : 1;
+                if (aFav !== bFav) return aFav - bFav;
+                return a.name.localeCompare(b.name);
+            });
+
             if (!groupByCategory) {
-                // Original ungrouped rendering
-                containerGrid.innerHTML = renderContainerCards(containers, 0);
+                // Original ungrouped rendering (with favorites sorted to top)
+                containerGrid.innerHTML = renderContainerCards(sortedContainers, 0);
                 return;
             }
 
+            // Separate favorites from regular containers
+            const favorites = sortedContainers.filter(c => favoriteContainers.has(c.id));
+            const nonFavorites = sortedContainers.filter(c => !favoriteContainers.has(c.id));
+
             // Group containers by category
             const grouped = {};
-            containers.forEach(container => {
+            nonFavorites.forEach(container => {
                 const category = getCategoryForApp(container.appType);
                 if (!grouped[category]) {
                     grouped[category] = [];
@@ -1893,7 +1932,26 @@
             let html = '';
             let cardIndex = 0;
 
-            // Render defined categories first
+            // Render Favorites section first
+            if (favorites.length > 0) {
+                html += `
+                    <div class="col-span-full mb-4" style="animation: fadeInUp 0.6s ease-out backwards;">
+                        <div class="flex items-center gap-3 pb-3 border-b border-yellow-500/30">
+                            <div class="text-2xl text-yellow-400">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <h2 class="text-xl font-bold bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent">
+                                Favorites
+                            </h2>
+                            <span class="text-sm text-gray-400 ml-2">(${favorites.length})</span>
+                        </div>
+                    </div>
+                `;
+                html += renderContainerCards(favorites, 0);
+                cardIndex += favorites.length;
+            }
+
+            // Render defined categories
             for (const [categoryKey, categoryDef] of Object.entries(CATEGORIES)) {
                 if (grouped[categoryKey] && grouped[categoryKey].length > 0) {
                     html += `
@@ -1951,10 +2009,11 @@
                 const highUsageClass = isHighUsage ? 'high-usage' : '';
 
                 const isSelected = selectedContainers.has(container.id);
+                const isFavorite = favoriteContainers.has(container.id);
 
                 return `
                     <div class="container-card rounded-2xl p-5 shadow-xl ${isClickable ? 'clickable' : ''} ${highUsageClass}"
-                         style="animation-delay: ${animationDelay}s; ${isSelected ? 'border: 2px solid rgba(99, 102, 241, 0.6);' : ''}"
+                         style="animation-delay: ${animationDelay}s; ${isSelected ? 'border: 2px solid rgba(99, 102, 241, 0.6);' : ''} ${isFavorite ? 'box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);' : ''}"
                          ${isClickable ? `onclick="window.open('${serviceUrl}', '_blank')"` : ''}>
                         <!-- Selection Checkbox -->
                         <div class="absolute top-3 left-3 z-10">
@@ -1964,6 +2023,12 @@
                                    onclick="event.stopPropagation(); toggleContainerSelection('${container.id}')"
                                    class="w-5 h-5 rounded border-2 border-indigo-500/50 bg-gray-800/80 text-indigo-500 focus:ring-2 focus:ring-indigo-500/50 cursor-pointer">
                         </div>
+                        <!-- Favorite Star -->
+                        <button class="absolute top-3 right-3 z-10 favorite-star"
+                                onclick="event.stopPropagation(); toggleFavorite('${container.id}')"
+                                title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+                            <i class="fas fa-star ${isFavorite ? 'text-yellow-400' : 'text-gray-600'}" style="font-size: 1.25rem;"></i>
+                        </button>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
@@ -2304,6 +2369,32 @@
             deselectAllContainers();
             setTimeout(fetchContainers, 1000);
             showToast(`✓ Restarted ${succeeded} containers${failed > 0 ? `, ${failed} failed` : ''}`, succeeded > 0 ? 'success' : 'error');
+        }
+
+        // Favorites System
+        let favoriteContainers = new Set();
+
+        function loadFavorites() {
+            const saved = localStorage.getItem('dockview-favorites');
+            if (saved) {
+                favoriteContainers = new Set(JSON.parse(saved));
+            }
+        }
+
+        function saveFavorites() {
+            localStorage.setItem('dockview-favorites', JSON.stringify([...favoriteContainers]));
+        }
+
+        function toggleFavorite(id) {
+            if (favoriteContainers.has(id)) {
+                favoriteContainers.delete(id);
+                showToast('Removed from favorites', 'info');
+            } else {
+                favoriteContainers.add(id);
+                showToast('⭐ Added to favorites', 'success');
+            }
+            saveFavorites();
+            filterAndRenderContainers();  // Re-render to update star and sorting
         }
 
         // Container actions
@@ -3768,6 +3859,9 @@
 
         // Load saved theme
         loadTheme();
+
+        // Load favorites
+        loadFavorites();
     </script>
 
     <!-- Logs Modal -->
