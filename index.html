@@ -2286,7 +2286,7 @@
                             ${isRunning ? `
                                 <div>
                                     <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                        <span><i class="fas fa-microchip mr-1.5"></i>CPU</span>
+                                        <span><i class="fas fa-microchip mr-1.5"></i>CPU ${container.cpu_limit ? `<span class="text-indigo-400">(limit: ${container.cpu_limit.toFixed(1)} cores)</span>` : ''}</span>
                                         <span class="font-semibold text-gray-300">${container.cpu.toFixed(1)}%</span>
                                     </div>
                                     <div class="progress-container" style="height: 6px;">
@@ -2296,7 +2296,7 @@
 
                                 <div>
                                     <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                        <span><i class="fas fa-memory mr-1.5"></i>Memory</span>
+                                        <span><i class="fas fa-memory mr-1.5"></i>Memory ${container.memory_limit ? `<span class="text-indigo-400">(limit: ${container.memory_limit})</span>` : ''}</span>
                                         <span class="font-semibold text-gray-300">${container.memory.toFixed(1)}%</span>
                                     </div>
                                     <div class="progress-container" style="height: 6px;">
@@ -2329,6 +2329,19 @@
                                     ${container.ports.map(port => `
                                         <span class="px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-mono border border-indigo-500/30 hover:bg-indigo-500/30 transition-all">${port}</span>
                                     `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Resource Limits Badge -->
+                        ${(container.cpu_limit || container.memory_limit) ? `
+                            <div class="mb-3 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/30">
+                                <div class="text-xs text-indigo-300 font-semibold mb-1">
+                                    <i class="fas fa-tachometer-alt mr-1.5"></i>Resource Limits Configured
+                                </div>
+                                <div class="flex gap-3 text-xs text-gray-400">
+                                    ${container.cpu_limit ? `<span><i class="fas fa-microchip mr-1"></i>${container.cpu_limit.toFixed(1)} cores</span>` : ''}
+                                    ${container.memory_limit ? `<span><i class="fas fa-memory mr-1"></i>${container.memory_limit}</span>` : ''}
                                 </div>
                             </div>
                         ` : ''}

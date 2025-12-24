@@ -276,6 +276,24 @@ def process_container(c):
         if c.attrs.get('State', {}).get('Health'):
             health_status = c.attrs['State']['Health'].get('Status', 'unknown')
 
+        # Get resource limits from HostConfig
+        host_config = c.attrs.get('HostConfig', {})
+
+        # CPU limits
+        cpu_shares = host_config.get('CpuShares', 0)  # CPU shares (relative weight)
+        nano_cpus = host_config.get('NanoCpus', 0)  # CPU limit in nanocpus (1e9 = 1 CPU)
+        cpu_limit = None
+        if nano_cpus > 0:
+            cpu_limit = nano_cpus / 1e9  # Convert to number of CPUs
+        elif cpu_shares > 0 and cpu_shares != 1024:  # 1024 is default, means no limit
+            cpu_limit = cpu_shares / 1024  # Approximate conversion
+
+        # Memory limit
+        memory_limit_bytes = host_config.get('Memory', 0)
+        memory_limit = None
+        if memory_limit_bytes > 0:
+            memory_limit = format_bytes(memory_limit_bytes)
+
         return {
             "id": c.id[:12],
             "name": c.name,
@@ -288,7 +306,9 @@ def process_container(c):
             "appType": app_type,
             "image": image,
             "ports": ports,
-            "health": health_status
+            "health": health_status,
+            "cpu_limit": cpu_limit,
+            "memory_limit": memory_limit
         }
     except Exception as e:
         logger.error(f"Error processing container {c.name}: {e}")
