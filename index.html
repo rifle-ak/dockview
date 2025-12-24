@@ -1663,6 +1663,9 @@
                 // Check for container alerts/notifications
                 checkContainerAlerts(allContainers);
 
+                // Record stats for history charts
+                recordStats(allContainers);
+
                 updateStats();
                 filterAndRenderContainers();
             } catch (error) {
@@ -2072,6 +2075,9 @@
                             ` : ''}
                             <button onclick="event.stopPropagation(); showContainerInfo('${container.id}')" class="hover-action-btn" title="Container Info">
                                 <i class="fas fa-info-circle"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); viewStatsHistory('${container.id}', '${container.name}')" class="hover-action-btn" title="Stats History">
+                                <i class="fas fa-chart-line"></i>
                             </button>
                         </div>
                     </div>
@@ -2745,6 +2751,202 @@
             if (saved && THEMES[saved]) {
                 applyTheme(saved);
             }
+        }
+
+        // Stats History System
+        let statsHistory = new Map();  // Map<containerId, {timestamps: [], cpu: [], ram: []}>
+        const MAX_HISTORY_POINTS = 60;  // Keep last 60 data points (10 minutes at 10s intervals)
+        let cpuChart = null;
+        let ramChart = null;
+
+        function recordStats(containers) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            containers.forEach(container => {
+                if (!statsHistory.has(container.id)) {
+                    statsHistory.set(container.id, {
+                        name: container.name,
+                        timestamps: [],
+                        cpu: [],
+                        ram: []
+                    });
+                }
+
+                const history = statsHistory.get(container.id);
+                history.timestamps.push(timeStr);
+                history.cpu.push(container.cpu || 0);
+                history.ram.push(container.memory || 0);
+
+                // Keep only last MAX_HISTORY_POINTS
+                if (history.timestamps.length > MAX_HISTORY_POINTS) {
+                    history.timestamps.shift();
+                    history.cpu.shift();
+                    history.ram.shift();
+                }
+            });
+        }
+
+        function viewStatsHistory(id, name) {
+            const modal = document.getElementById('stats-history-modal');
+            const containerName = document.getElementById('stats-container-name');
+
+            containerName.textContent = name;
+            modal.classList.add('active');
+
+            const history = statsHistory.get(id);
+
+            if (!history || history.timestamps.length === 0) {
+                showToast('No stats history available yet. Data will appear after a few refresh cycles.', 'info');
+                // Show empty charts
+                renderStatsCharts(name, [], [], []);
+                return;
+            }
+
+            renderStatsCharts(name, history.timestamps, history.cpu, history.ram);
+        }
+
+        function renderStatsCharts(name, timestamps, cpu, ram) {
+            const cpuCtx = document.getElementById('cpu-chart').getContext('2d');
+            const ramCtx = document.getElementById('ram-chart').getContext('2d');
+
+            // Destroy existing charts if they exist
+            if (cpuChart) {
+                cpuChart.destroy();
+            }
+            if (ramChart) {
+                ramChart.destroy();
+            }
+
+            // Create CPU chart
+            cpuChart = new Chart(cpuCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'CPU Usage (%)',
+                        data: cpu,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e2e8f0',
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#f97316',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#f97316',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Create RAM chart
+            ramChart = new Chart(ramCtx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'RAM Usage (%)',
+                        data: ram,
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e2e8f0',
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#a855f7',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#a855f7',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#94a3b8',
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function closeStatsHistory() {
+            document.getElementById('stats-history-modal').classList.remove('active');
         }
 
         // Monitor container states and send notifications
@@ -3789,6 +3991,45 @@
                         </div>
                         <p class="text-xs text-gray-400">Rich purple mystique</p>
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats History Modal -->
+    <div id="stats-history-modal" class="modal">
+        <div class="modal-content" style="width: 1000px;">
+            <div class="modal-header">
+                <h2 class="text-2xl font-bold">
+                    <i class="fas fa-chart-line mr-3"></i>
+                    Stats History: <span id="stats-container-name"></span>
+                </h2>
+                <button class="modal-close ripple" onclick="closeStatsHistory()">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-6">
+                    <div class="glass p-4 rounded-xl">
+                        <h3 class="text-lg font-bold text-orange-400 mb-4">
+                            <i class="fas fa-microchip mr-2"></i>CPU Usage Over Time
+                        </h3>
+                        <canvas id="cpu-chart" height="100"></canvas>
+                    </div>
+
+                    <div class="glass p-4 rounded-xl">
+                        <h3 class="text-lg font-bold text-purple-400 mb-4">
+                            <i class="fas fa-memory mr-2"></i>RAM Usage Over Time
+                        </h3>
+                        <canvas id="ram-chart" height="100"></canvas>
+                    </div>
+
+                    <div class="glass p-4 rounded-xl">
+                        <p class="text-xs text-gray-400 text-center">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            Stats are collected every 10 seconds. History is retained for the current session only.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
