@@ -365,6 +365,51 @@ async def start_container(container_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/logs/{container_id}")
+async def get_container_logs(container_id: str, tail: int = 100):
+    """Get container logs"""
+    try:
+        container = client.containers.get(container_id)
+        logs = container.logs(tail=tail, timestamps=True).decode('utf-8', errors='replace')
+        return {
+            "container_id": container_id,
+            "container_name": container.name,
+            "logs": logs,
+            "lines": len(logs.split('\n'))
+        }
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/details/{container_id}")
+async def get_container_details(container_id: str):
+    """Get detailed container information"""
+    try:
+        container = client.containers.get(container_id)
+        attrs = container.attrs
+        config = attrs.get('Config', {})
+        host_config = attrs.get('HostConfig', {})
+        network_settings = attrs.get('NetworkSettings', {})
+
+        return {
+            "id": container.id,
+            "name": container.name,
+            "image": config.get('Image', 'N/A'),
+            "created": attrs.get('Created', 'N/A'),
+            "status": container.status,
+            "env": config.get('Env', []),
+            "volumes": host_config.get('Binds', []),
+            "ports": network_settings.get('Ports', {}),
+            "networks": list(network_settings.get('Networks', {}).keys()),
+            "restart_policy": host_config.get('RestartPolicy', {}).get('Name', 'no'),
+            "labels": config.get('Labels', {}),
+            "command": config.get('Cmd', []),
+            "entrypoint": config.get('Entrypoint', [])
+        }
+    except Exception as e:
+        logger.error(f"Error fetching details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ===== WIDGET ENDPOINTS =====
 
 @app.get("/widgets/all")
