@@ -206,6 +206,47 @@
             transform: rotate(72deg);
         }
 
+        .quick-stat-card {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(31, 38, 73, 0.4);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .quick-stat-card:hover {
+            background: rgba(31, 38, 73, 0.6);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .quick-stat-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .quick-stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1;
+            color: #e2e8f0;
+        }
+
+        .quick-stat-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
         .logs-container {
             background: #0a0e1a;
             border: 1px solid rgba(99, 102, 241, 0.2);
@@ -932,8 +973,34 @@
                         <i class="fas fa-project-diagram mr-2"></i>Network
                     </button>
                     </div>
-                    <div id="stats-summary" class="flex gap-4">
-                        <!-- Stats will be injected here -->
+                    <div id="stats-summary" class="flex gap-3">
+                        <div class="quick-stat-card">
+                            <div class="quick-stat-icon bg-green-500/20">
+                                <i class="fas fa-play-circle text-green-400"></i>
+                            </div>
+                            <div>
+                                <div class="quick-stat-value" id="quick-running">0</div>
+                                <div class="quick-stat-label">Running</div>
+                            </div>
+                        </div>
+                        <div class="quick-stat-card">
+                            <div class="quick-stat-icon bg-orange-500/20">
+                                <i class="fas fa-microchip text-orange-400"></i>
+                            </div>
+                            <div>
+                                <div class="quick-stat-value" id="quick-cpu">0%</div>
+                                <div class="quick-stat-label">Total CPU</div>
+                            </div>
+                        </div>
+                        <div class="quick-stat-card">
+                            <div class="quick-stat-icon bg-purple-500/20">
+                                <i class="fas fa-memory text-purple-400"></i>
+                            </div>
+                            <div>
+                                <div class="quick-stat-value" id="quick-ram">0 GB</div>
+                                <div class="quick-stat-label">Total RAM</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1771,6 +1838,11 @@
             // Create sparklines with gradients
             sparklineCpu = createSparkline('sparkline-cpu', cpuTrend, '#fb923c', 'rgba(251, 146, 60, ');
             sparklineRam = createSparkline('sparkline-ram', ramTrend, '#c084fc', 'rgba(192, 132, 252, ');
+
+            // Update quick stats cards
+            document.getElementById('quick-running').textContent = running;
+            document.getElementById('quick-cpu').textContent = totalCpu.toFixed(1) + '%';
+            document.getElementById('quick-ram').textContent = totalRam.toFixed(1) + ' GB';
 
             console.log(`📊 Stats: ${total} total, ${running} running, ${stopped} stopped, CPU: ${totalCpu.toFixed(1)}%, RAM: ${totalRam.toFixed(1)} GB`);
         }
