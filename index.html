@@ -1465,14 +1465,23 @@
 
         <!-- Search and Filters -->
         <div class="mb-8">
-            <div class="search-container mx-auto mb-6">
+            <div class="search-container mx-auto mb-2 relative">
                 <i class="fas fa-search search-icon"></i>
                 <input
                     type="text"
                     id="search-input"
                     class="search-input"
-                    placeholder="Search containers by name, image, or status..."
+                    placeholder="🔍 Search containers by name, image, status, app type, or notes..."
                 >
+                <button id="clear-search-btn"
+                        onclick="clearSearch()"
+                        class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-400 transition-all opacity-0 pointer-events-none"
+                        title="Clear search">
+                    <i class="fas fa-times-circle" style="font-size: 1.25rem;"></i>
+                </button>
+            </div>
+            <div id="search-results-info" class="text-center text-sm text-gray-400 mb-4" style="display: none;">
+                Found <span id="search-results-count" class="font-bold text-indigo-400">0</span> container(s)
             </div>
 
             <!-- Tabs and Controls -->
@@ -1749,6 +1758,17 @@
         // Event listeners
         searchInput.addEventListener('input', (e) => {
             searchTerm = e.target.value.toLowerCase();
+
+            // Show/hide clear button
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (searchTerm) {
+                clearBtn.style.opacity = '1';
+                clearBtn.style.pointerEvents = 'auto';
+            } else {
+                clearBtn.style.opacity = '0';
+                clearBtn.style.pointerEvents = 'none';
+            }
+
             filterAndRenderContainers();
         });
 
@@ -1911,13 +1931,17 @@
                 filtered = filtered.filter(c => c.status === currentFilter);
             }
 
-            // Apply search filter
+            // Apply enhanced search filter
             if (searchTerm) {
-                filtered = filtered.filter(c =>
-                    c.name.toLowerCase().includes(searchTerm) ||
-                    c.image.toLowerCase().includes(searchTerm) ||
-                    c.status.toLowerCase().includes(searchTerm)
-                );
+                filtered = filtered.filter(c => {
+                    const matchName = c.name.toLowerCase().includes(searchTerm);
+                    const matchImage = c.image.toLowerCase().includes(searchTerm);
+                    const matchStatus = c.status.toLowerCase().includes(searchTerm);
+                    const matchAppType = c.appType && c.appType.toLowerCase().includes(searchTerm);
+                    const matchNotes = containerNotes[c.id] && containerNotes[c.id].toLowerCase().includes(searchTerm);
+
+                    return matchName || matchImage || matchStatus || matchAppType || matchNotes;
+                });
             }
 
             // Apply quick filters
@@ -1927,6 +1951,16 @@
                 filtered = filtered.filter(c => c.memory > 75);
             } else if (activeFilter === 'unhealthy') {
                 filtered = filtered.filter(c => c.cpu > 75 || c.memory > 75 || c.status !== 'running');
+            }
+
+            // Update search results info
+            const resultsInfo = document.getElementById('search-results-info');
+            const resultsCount = document.getElementById('search-results-count');
+            if (searchTerm) {
+                resultsInfo.style.display = 'block';
+                resultsCount.textContent = filtered.length;
+            } else {
+                resultsInfo.style.display = 'none';
             }
 
             renderContainers(filtered);
@@ -2371,6 +2405,22 @@
             showToast('✓ Filters cleared', 'success');
         }
 
+        function clearSearch() {
+            searchTerm = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+            }
+
+            // Hide clear button
+            const clearBtn = document.getElementById('clear-search-btn');
+            clearBtn.style.opacity = '0';
+            clearBtn.style.pointerEvents = 'none';
+
+            filterAndRenderContainers();
+        }
+
         // Bulk Actions
         let selectedContainers = new Set();
 
@@ -2422,11 +2472,15 @@
             }
 
             if (searchTerm) {
-                filtered = filtered.filter(c =>
-                    c.name.toLowerCase().includes(searchTerm) ||
-                    c.image.toLowerCase().includes(searchTerm) ||
-                    c.status.toLowerCase().includes(searchTerm)
-                );
+                filtered = filtered.filter(c => {
+                    const matchName = c.name.toLowerCase().includes(searchTerm);
+                    const matchImage = c.image.toLowerCase().includes(searchTerm);
+                    const matchStatus = c.status.toLowerCase().includes(searchTerm);
+                    const matchAppType = c.appType && c.appType.toLowerCase().includes(searchTerm);
+                    const matchNotes = containerNotes[c.id] && containerNotes[c.id].toLowerCase().includes(searchTerm);
+
+                    return matchName || matchImage || matchStatus || matchAppType || matchNotes;
+                });
             }
 
             if (activeFilter === 'cpu') {
