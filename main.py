@@ -252,10 +252,20 @@ def process_container(c):
             memory_usage = stats['memory_stats'].get('usage', 0)
             memory_limit = stats['memory_stats'].get('limit', 0)
             memory_text = f"{format_bytes(memory_usage)} / {format_bytes(memory_limit)}"
+
+            # Extract network I/O stats
+            network_stats = stats.get('networks', {})
+            network_rx = 0
+            network_tx = 0
+            for interface, data in network_stats.items():
+                network_rx += data.get('rx_bytes', 0)
+                network_tx += data.get('tx_bytes', 0)
         else:
             cpu = 0.0
             memory = 0.0
             memory_text = "N/A"
+            network_rx = 0
+            network_tx = 0
 
         # Get image name
         image = c.image.tags[0] if c.image.tags else c.attrs['Config']['Image']
@@ -271,6 +281,29 @@ def process_container(c):
                     for binding in bindings:
                         ports.append(f"{binding['HostPort']}:{port}")
 
+        # Get health check status
+        health_status = None
+        if c.attrs.get('State', {}).get('Health'):
+            health_status = c.attrs['State']['Health'].get('Status', 'unknown')
+
+        # Get resource limits from HostConfig
+        host_config = c.attrs.get('HostConfig', {})
+
+        # CPU limits
+        cpu_shares = host_config.get('CpuShares', 0)  # CPU shares (relative weight)
+        nano_cpus = host_config.get('NanoCpus', 0)  # CPU limit in nanocpus (1e9 = 1 CPU)
+        cpu_limit = None
+        if nano_cpus > 0:
+            cpu_limit = nano_cpus / 1e9  # Convert to number of CPUs
+        elif cpu_shares > 0 and cpu_shares != 1024:  # 1024 is default, means no limit
+            cpu_limit = cpu_shares / 1024  # Approximate conversion
+
+        # Memory limit
+        memory_limit_bytes = host_config.get('Memory', 0)
+        memory_limit = None
+        if memory_limit_bytes > 0:
+            memory_limit = format_bytes(memory_limit_bytes)
+
         return {
             "id": c.id[:12],
             "name": c.name,
@@ -282,7 +315,14 @@ def process_container(c):
             "memory_text": memory_text,
             "appType": app_type,
             "image": image,
-            "ports": ports
+            "ports": ports,
+            "health": health_status,
+            "cpu_limit": cpu_limit,
+            "memory_limit": memory_limit,
+            "network_rx": network_rx,
+            "network_tx": network_tx,
+            "network_rx_text": format_bytes(network_rx),
+            "network_tx_text": format_bytes(network_tx)
         }
     except Exception as e:
         logger.error(f"Error processing container {c.name}: {e}")
@@ -329,6 +369,16 @@ async def root():
     logger.info("Serving index.html from root endpoint")
     return FileResponse('index.html', media_type='text/html')
 
+@app.get("/manifest.json")
+async def manifest():
+    """Serve PWA manifest"""
+    return FileResponse('manifest.json', media_type='application/json')
+
+@app.get("/sw.js")
+async def service_worker():
+    """Serve service worker"""
+    return FileResponse('sw.js', media_type='application/javascript')
+
 @app.get("/containers")
 async def containers():
     """Get all containers"""
@@ -364,6 +414,305 @@ async def start_container(container_id: str):
         return {"status": "success", "message": f"Container {container_id} started"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.get("/logs/{container_id}")
+async def get_container_logs(container_id: str, tail: int = 100):
+    """Get container logs"""
+    try:
+        container = client.containers.get(container_id)
+        logs = container.logs(tail=tail, timestamps=True).decode('utf-8', errors='replace')
+        return {
+            "container_id": container_id,
+            "container_name": container.name,
+            "logs": logs,
+            "lines": len(logs.split('\n'))
+        }
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/details/{container_id}")
+async def get_container_details(container_id: str):
+    """Get detailed container information"""
+    try:
+        container = client.containers.get(container_id)
+        attrs = container.attrs
+        config = attrs.get('Config', {})
+        host_config = attrs.get('HostConfig', {})
+        network_settings = attrs.get('NetworkSettings', {})
+
+        return {
+            "id": container.id,
+            "name": container.name,
+            "image": config.get('Image', 'N/A'),
+            "created": attrs.get('Created', 'N/A'),
+            "status": container.status,
+            "env": config.get('Env', []),
+            "volumes": host_config.get('Binds', []),
+            "ports": network_settings.get('Ports', {}),
+            "networks": list(network_settings.get('Networks', {}).keys()),
+            "restart_policy": host_config.get('RestartPolicy', {}).get('Name', 'no'),
+            "labels": config.get('Labels', {}),
+            "command": config.get('Cmd', []),
+            "entrypoint": config.get('Entrypoint', [])
+        }
+    except Exception as e:
+        logger.error(f"Error fetching details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== NETWORK TOPOLOGY ENDPOINTS =====
+
+@app.get("/network/topology")
+async def get_network_topology():
+    """Get Docker network topology"""
+    try:
+        networks = client.networks.list()
+        topology = []
+
+        for network in networks:
+            net_data = {
+                "id": network.id[:12],
+                "name": network.name,
+                "driver": network.attrs.get('Driver', 'unknown'),
+                "scope": network.attrs.get('Scope', 'unknown'),
+                "subnet": None,
+                "gateway": None,
+                "containers": []
+            }
+
+            # Get IPAM config
+            ipam = network.attrs.get('IPAM', {})
+            if ipam and 'Config' in ipam and ipam['Config']:
+                config = ipam['Config'][0] if ipam['Config'] else {}
+                net_data['subnet'] = config.get('Subnet')
+                net_data['gateway'] = config.get('Gateway')
+
+            # Get connected containers
+            containers_dict = network.attrs.get('Containers', {})
+            for cont_id, cont_info in containers_dict.items():
+                net_data['containers'].append({
+                    "id": cont_id[:12],
+                    "name": cont_info.get('Name', 'unknown'),
+                    "ipv4": cont_info.get('IPv4Address', '').split('/')[0] if cont_info.get('IPv4Address') else None
+                })
+
+            topology.append(net_data)
+
+        return topology
+    except Exception as e:
+        logger.error(f"Error fetching network topology: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/network/scan")
+async def scan_network():
+    """Scan local network for devices using ARP"""
+    try:
+        import subprocess
+        import re
+
+        devices = []
+
+        # Use arp-scan if available, fallback to arp
+        try:
+            # Try arp-scan first (more comprehensive)
+            result = subprocess.run(
+                ['arp-scan', '--localnet', '--quiet'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            # Parse arp-scan output
+            for line in result.stdout.split('\n'):
+                match = re.match(r'(\d+\.\d+\.\d+\.\d+)\s+([\da-f:]+)\s+(.*)', line, re.I)
+                if match:
+                    devices.append({
+                        "ip": match.group(1),
+                        "mac": match.group(2),
+                        "hostname": match.group(3) or None,
+                        "type": "network_device"
+                    })
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Fallback to arp command
+            result = subprocess.run(
+                ['arp', '-a'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            # Parse arp output (works on Linux and macOS)
+            for line in result.stdout.split('\n'):
+                # Match pattern: hostname (IP) at MAC [ether] on interface
+                match = re.search(r'(?:(\S+)\s+)?\((\d+\.\d+\.\d+\.\d+)\).*?([\da-f:]{11,17})', line, re.I)
+                if match:
+                    devices.append({
+                        "ip": match.group(2),
+                        "mac": match.group(3),
+                        "hostname": match.group(1) if match.group(1) and match.group(1) != '?' else None,
+                        "type": "network_device"
+                    })
+
+        # Try to resolve hostnames for IPs without them
+        for device in devices:
+            if not device.get('hostname'):
+                try:
+                    import socket
+                    hostname = socket.gethostbyaddr(device['ip'])[0]
+                    device['hostname'] = hostname
+                except:
+                    pass
+
+        logger.info(f"✓ Found {len(devices)} network devices")
+        return devices
+
+    except Exception as e:
+        logger.error(f"Error scanning network: {e}")
+        # Return empty list instead of error to avoid breaking the UI
+        return []
+
+# ===== VOLUMES ENDPOINTS =====
+
+@app.get("/volumes")
+async def get_volumes():
+    """Get all Docker volumes with usage information"""
+    try:
+        volumes = client.volumes.list()
+        volume_list = []
+
+        for volume in volumes:
+            vol_data = {
+                "name": volume.name,
+                "driver": volume.attrs.get('Driver', 'unknown'),
+                "mountpoint": volume.attrs.get('Mountpoint', 'N/A'),
+                "created": volume.attrs.get('CreatedAt', 'N/A'),
+                "scope": volume.attrs.get('Scope', 'local'),
+                "labels": volume.attrs.get('Labels') or {},
+            }
+
+            # Try to get volume size using docker system df -v
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ['docker', 'system', 'df', '-v', '--format', '{{.Name}}\t{{.Size}}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                for line in result.stdout.split('\n'):
+                    if volume.name in line:
+                        parts = line.split('\t')
+                        if len(parts) >= 2:
+                            vol_data['size'] = parts[1].strip()
+                            break
+
+                if 'size' not in vol_data:
+                    vol_data['size'] = 'Unknown'
+            except:
+                vol_data['size'] = 'Unknown'
+
+            # Get containers using this volume
+            containers_using = []
+            try:
+                all_containers = client.containers.list(all=True)
+                for container in all_containers:
+                    mounts = container.attrs.get('Mounts', [])
+                    for mount in mounts:
+                        if mount.get('Type') == 'volume' and mount.get('Name') == volume.name:
+                            containers_using.append({
+                                'id': container.id[:12],
+                                'name': container.name,
+                                'status': container.status
+                            })
+                            break
+            except:
+                pass
+
+            vol_data['containers'] = containers_using
+            volume_list.append(vol_data)
+
+        logger.info(f"✓ Found {len(volume_list)} Docker volumes")
+        return volume_list
+
+    except Exception as e:
+        logger.error(f"Error fetching volumes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== IMAGES ENDPOINTS =====
+
+@app.get("/images")
+async def get_images():
+    """Get all Docker images"""
+    try:
+        images = client.images.list()
+        image_list = []
+
+        for image in images:
+            # Get tags
+            tags = image.tags if image.tags else ['<none>:<none>']
+
+            # Get size
+            size = format_bytes(image.attrs.get('Size', 0))
+
+            # Get created date
+            created_str = image.attrs.get('Created', '')
+            try:
+                created = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                created_ago = format_time_ago(created)
+            except:
+                created_ago = 'Unknown'
+
+            # Find containers using this image
+            containers_using = []
+            try:
+                all_containers = client.containers.list(all=True)
+                for container in all_containers:
+                    if container.image.id == image.id:
+                        containers_using.append({
+                            'id': container.id[:12],
+                            'name': container.name,
+                            'status': container.status
+                        })
+            except:
+                pass
+
+            for tag in tags:
+                repo, tag_name = tag.split(':', 1) if ':' in tag else (tag, 'latest')
+                image_list.append({
+                    'id': image.id[:12] if hasattr(image, 'id') else 'unknown',
+                    'repository': repo,
+                    'tag': tag_name,
+                    'full_tag': tag,
+                    'size': size,
+                    'created': created_ago,
+                    'containers': containers_using
+                })
+
+        logger.info(f"✓ Found {len(image_list)} Docker images")
+        return image_list
+
+    except Exception as e:
+        logger.error(f"Error fetching images: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def format_time_ago(dt):
+    """Format datetime as 'X days ago' or 'X hours ago'"""
+    now = datetime.now(timezone.utc)
+    diff = now - dt
+
+    days = diff.days
+    hours = diff.seconds // 3600
+    minutes = (diff.seconds % 3600) // 60
+
+    if days > 0:
+        return f"{days} day{'s' if days > 1 else ''} ago"
+    elif hours > 0:
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif minutes > 0:
+        return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+    else:
+        return "Just now"
 
 # ===== WIDGET ENDPOINTS =====
 
