@@ -205,21 +205,21 @@
         }
 
         .favorite-star {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.15);
             border: none;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(4px);
         }
 
         .favorite-star:hover {
-            background: rgba(251, 191, 36, 0.2);
+            background: rgba(251, 191, 36, 0.25);
             transform: scale(1.1);
         }
 
@@ -232,26 +232,26 @@
         }
 
         .notes-button {
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.15);
             border: none;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(4px);
         }
 
         .notes-button:hover {
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(59, 130, 246, 0.25);
             transform: scale(1.1);
         }
 
         .notes-button.has-note {
-            background: rgba(59, 130, 246, 0.3);
+            background: rgba(59, 130, 246, 0.2);
         }
 
         .notes-button i {
@@ -422,26 +422,26 @@
         }
 
         .hover-action-btn {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.9));
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.85), rgba(139, 92, 246, 0.85));
+            border: 2px solid rgba(255, 255, 255, 0.15);
             color: white;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
         }
 
         .hover-action-btn:hover {
             transform: scale(1.15);
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(139, 92, 246, 0.95));
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
         }
 
         .hover-action-btn:active {
@@ -2303,16 +2303,16 @@
                                    class="w-5 h-5 rounded border-2 border-indigo-500/50 bg-gray-800/80 text-indigo-500 focus:ring-2 focus:ring-indigo-500/50 cursor-pointer">
                         </div>
                         <!-- Notes Button -->
-                        <button class="absolute top-3 right-14 z-10 notes-button ${containerNotes[container.id] ? 'has-note' : ''}"
+                        <button class="absolute top-3 right-12 z-10 notes-button ${containerNotes[container.id] ? 'has-note' : ''}"
                                 onclick="event.stopPropagation(); openNotesModal('${container.id}', '${container.name.replace(/'/g, "\\'")}')"
                                 title="${containerNotes[container.id] ? 'Edit note' : 'Add note'}">
-                            <i class="fas fa-sticky-note ${containerNotes[container.id] ? 'text-blue-400' : 'text-gray-600'}" style="font-size: 1.1rem;"></i>
+                            <i class="fas fa-sticky-note ${containerNotes[container.id] ? 'text-blue-400' : 'text-gray-500'}" style="font-size: 0.9rem;"></i>
                         </button>
                         <!-- Favorite Star -->
                         <button class="absolute top-3 right-3 z-10 favorite-star"
                                 onclick="event.stopPropagation(); toggleFavorite('${container.id}')"
                                 title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
-                            <i class="fas fa-star ${isFavorite ? 'text-yellow-400' : 'text-gray-600'}" style="font-size: 1.25rem;"></i>
+                            <i class="fas fa-star ${isFavorite ? 'text-yellow-400' : 'text-gray-500'}" style="font-size: 1rem;"></i>
                         </button>
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-4">
