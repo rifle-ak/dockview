@@ -2418,17 +2418,17 @@
                         ` : ''}
 
                         <!-- Actions -->
-                        <div class="flex gap-2 mt-4 pt-4 border-t border-gray-700/30">
+                        <div class="flex gap-2 mt-3 pt-3 border-t border-gray-700/30">
                             ${isRunning ? `
-                                <button onclick="event.stopPropagation(); restartContainer('${container.id}')" class="btn btn-warning flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
-                                    <i class="fas fa-redo mr-1.5"></i>Restart
+                                <button onclick="event.stopPropagation(); restartContainer('${container.id}')" class="btn btn-warning flex-1 py-1.5 rounded-lg text-xs font-semibold hover:scale-105 transition-transform ripple">
+                                    <i class="fas fa-redo mr-1"></i>Restart
                                 </button>
-                                <button onclick="event.stopPropagation(); stopContainer('${container.id}')" class="btn btn-danger flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
-                                    <i class="fas fa-stop mr-1.5"></i>Stop
+                                <button onclick="event.stopPropagation(); stopContainer('${container.id}')" class="btn btn-danger flex-1 py-1.5 rounded-lg text-xs font-semibold hover:scale-105 transition-transform ripple">
+                                    <i class="fas fa-stop mr-1"></i>Stop
                                 </button>
                             ` : `
-                                <button onclick="event.stopPropagation(); startContainer('${container.id}')" class="btn btn-success flex-1 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ripple">
-                                    <i class="fas fa-play mr-1.5"></i>Start
+                                <button onclick="event.stopPropagation(); startContainer('${container.id}')" class="btn btn-success flex-1 py-1.5 rounded-lg text-xs font-semibold hover:scale-105 transition-transform ripple">
+                                    <i class="fas fa-play mr-1"></i>Start
                                 </button>
                             `}
                         </div>
